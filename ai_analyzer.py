@@ -1,4 +1,18 @@
-import ollama
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.groq.com/openai/v1",
+    api_key=os.getenv("GROQ_API_KEY")
+)
+
+def _chat(prompt):
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+
 
 def analyze_resume(resume_text):
     prompt = f"""
@@ -29,11 +43,7 @@ SUMMARY:
 Resume:
 {resume_text}
 """
-    response = ollama.chat(
-        model="llama3.2",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response['message']['content']
+    return _chat(prompt)
 
 
 def generate_interview_questions(skills, job_title):
@@ -62,11 +72,7 @@ SITUATIONAL QUESTIONS:
 9. [question]
 10. [question]
 """
-    response = ollama.chat(
-        model="llama3.2",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response['message']['content']
+    return _chat(prompt)
 
 
 def generate_skill_roadmap(missing_skills, target_job):
@@ -99,11 +105,7 @@ WEEK 5-6: [skill to learn]
 ESTIMATED TIME: [X weeks/months]
 DIFFICULTY: [Easy/Medium/Hard]
 """
-    response = ollama.chat(
-        model="llama3.2",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response['message']['content']
+    return _chat(prompt)
 
 
 def improve_resume_line(original_line):
@@ -123,8 +125,4 @@ VERSION 3: [improved line]
 
 EXPLANATION: [why these are better]
 """
-    response = ollama.chat(
-        model="llama3.2",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response['message']['content']
+    return _chat(prompt)
