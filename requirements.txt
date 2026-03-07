@@ -1,0 +1,10 @@
+streamlit
+pandas
+plotly
+firebase-admin
+python-dotenv
+ollama
+chromadb
+spacy
+scikit-learn
+openai

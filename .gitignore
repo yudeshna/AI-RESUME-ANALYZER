@@ -1,0 +1,28 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables
+.env
+
+# Streamlit secrets
+.streamlit/
+
+# ChromaDB vector database
+chroma_db/
+
+# Generated files
+*.pdf
+resume_analysis_report.pdf
+
+# Firebase secret key
+firebase-adminsdk*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+firebase_key.json
+*.json
