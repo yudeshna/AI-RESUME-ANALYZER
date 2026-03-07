@@ -1,7 +1,3 @@
-import spacy
-
-nlp = spacy.load("en_core_web_sm")
-
 SKILLS_LIST = [
     # Programming Languages
     "Python", "Java", "JavaScript", "C++", "C#", "R", "SQL",
