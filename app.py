@@ -30,12 +30,13 @@ client = OpenAI(
     api_key = os.getenv("GROQ_API_KEY")
 )
 
-# ─── Firebase Setup ────────────────────────────────────────
+# Firebase Setup
 if not firebase_admin._apps:
-    cred = credentials.Certificate("ai-resume-analyzer-70a27-firebase-adminsdk-fbsvc-e95cb7150d.json")
-    firebase_admin.initialize_app(cred)
+    firebase_key = dict(st.secrets["firebase"])
+    firebase_key["private_key"] = firebase_key["private_key"].replace("\\n", "\n")
 
-db = firestore.client()
+    cred = credentials.Certificate(firebase_key)
+    firebase_admin.initialize_app(cred)
 # ─── Load Jobs Dataset ─────────────────────
 try:
     jobs_df = pd.read_csv("jobs_dataset.csv")
