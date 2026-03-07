@@ -6,6 +6,10 @@ python-dotenv
 ollama
 chromadb
 spacy
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
 scikit-learn
 openai
 pdfplumber
+numpy
+python-docx
+groq
