@@ -4,8 +4,8 @@ plotly
 firebase-admin
 python-dotenv
 chromadb
-spacy
-en-core-web-sm
+spacy==3.8.0
+en-core-web-sm==3.8.0
 scikit-learn
 openai
 pdfplumber
