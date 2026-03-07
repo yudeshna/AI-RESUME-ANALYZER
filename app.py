@@ -45,7 +45,7 @@ except:
 
 # ─── Email Config ──────────────────────────────────────────
 SENDER_EMAIL    = "nandu19jul@gmail.com"
-SENDER_PASSWORD = "vsoo tsqc xbgy brln"
+SENDER_PASSWORD = "geyc nypl ctnc xexm"
 
 # ─── Page Config ───────────────────────────────────────────
 st.set_page_config(
