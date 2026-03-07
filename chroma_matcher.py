@@ -33,7 +33,7 @@ JOBS_DATA = [
         "description": "React JavaScript HTML CSS TypeScript Vue Angular UI UX web development responsive design",
         "skills": ["React","JavaScript","HTML","CSS","TypeScript","Vue"],
         "salary": "5-14 LPA",
-        "companies":["Zomato","Zepto","PhonePe","Paytm","Meesho"]
+        "companies": ["Zomato","Zepto","PhonePe","Paytm","Meesho"]
     },
     {
         "id": "job_5",
@@ -41,7 +41,7 @@ JOBS_DATA = [
         "description": "Python Java Node.js SQL REST API Docker MongoDB microservices server database API development",
         "skills": ["Python","Java","Node.js","SQL","REST API","Docker","MongoDB"],
         "salary": "6-16 LPA",
-        "companies":["Atlassian","Freshworks","Zoho","Postman","BrowserStack"]
+        "companies": ["Atlassian","Freshworks","Zoho","Postman","BrowserStack"]
     },
     {
         "id": "job_6",
@@ -49,7 +49,7 @@ JOBS_DATA = [
         "description": "React Node.js JavaScript SQL MongoDB Python Docker full stack web application frontend backend",
         "skills": ["React","Node.js","JavaScript","SQL","MongoDB","Python","Docker"],
         "salary": "7-18 LPA",
-        "companies":["Spotify","LinkedIn","Twitter","Airbnb","Notion"]
+        "companies": ["Spotify","LinkedIn","Twitter","Airbnb","Notion"]
     },
     {
         "id": "job_7",
@@ -57,7 +57,7 @@ JOBS_DATA = [
         "description": "Docker Kubernetes CI/CD AWS Linux Python Jenkins infrastructure automation cloud deployment pipeline",
         "skills": ["Docker","Kubernetes","CI/CD","AWS","Linux","Python","Jenkins"],
         "salary": "8-20 LPA",
-        "companies":["Red Hat","HashiCorp","Cloudflare","Datadog","PagerDuty"]
+        "companies": ["Red Hat","HashiCorp","Cloudflare","Datadog","PagerDuty"]
     },
     {
         "id": "job_8",
@@ -73,7 +73,7 @@ JOBS_DATA = [
         "description": "Python SQL Spark Hadoop AWS Pandas data pipeline ETL big data warehouse Airflow Kafka",
         "skills": ["Python","SQL","Spark","Hadoop","AWS","Pandas"],
         "salary": "8-18 LPA",
-        "companies":["Databricks","Snowflake","Confluent","dbt Labs","Fivetran"]
+        "companies": ["Databricks","Snowflake","Confluent","dbt Labs","Fivetran"]
     },
     {
         "id": "job_10",
@@ -101,21 +101,22 @@ JOBS_DATA = [
     },
 ]
 
-# Initialize ChromaDB
-client = chromadb.Client()
-
-embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-    model_name="all-MiniLM-L6-v2"
-)
 
 def setup_chroma():
     """Setup ChromaDB collection with job data"""
+    # ✅ FIXED: embedding_fn initialized INSIDE function, not at module level
+    embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name="all-MiniLM-L6-v2"
+    )
+
+    chroma_client = chromadb.Client()
+
     try:
-        client.delete_collection("jobs")
+        chroma_client.delete_collection("jobs")
     except:
         pass
 
-    collection = client.create_collection(
+    collection = chroma_client.create_collection(
         name="jobs",
         embedding_function=embedding_fn
     )
@@ -138,6 +139,7 @@ def setup_chroma():
         metadatas=metadatas
     )
     return collection
+
 
 def smart_job_match(resume_text, n_results=5):
     """Use ChromaDB vector search to find best job matches"""
