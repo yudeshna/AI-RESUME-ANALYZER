@@ -34,9 +34,10 @@ client = OpenAI(
 if not firebase_admin._apps:
     firebase_key = dict(st.secrets["firebase"])
     firebase_key["private_key"] = firebase_key["private_key"].replace("\\n", "\n")
-
     cred = credentials.Certificate(firebase_key)
     firebase_admin.initialize_app(cred)
+
+db = firestore.client()
 # ─── Load Jobs Dataset ─────────────────────
 try:
     jobs_df = pd.read_csv("jobs_dataset.csv")
