@@ -3,7 +3,6 @@ pandas
 plotly
 firebase-admin
 python-dotenv
-chromadb
 scikit-learn
 openai
 pdfplumber
