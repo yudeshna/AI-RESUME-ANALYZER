@@ -386,6 +386,9 @@ if st.session_state.page == "profile":
 # ══════════════════════════════════════════════════════════
 
 user       = st.session_state.get("user") or {}
+if not user:
+    st.session_state.page = "login"
+    st.rerun()
 name       = user.get("name", "User")
 education  = user.get("education", "")
 job_target = user.get("job_target", "")
