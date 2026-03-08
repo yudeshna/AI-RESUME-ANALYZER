@@ -307,8 +307,6 @@ if st.session_state.page == "login":
             with col_v:
                 if st.button("✅ Verify & Login", key="verify_btn"):
                     if otp_input.strip() == st.session_state.otp_code:
-                        email = st.session_state.otp_email
-                        user_data = get_user(email)
                         st.session_state.otp_sent = False
                         st.session_state.otp_code = ""
                         # Always go to profile page after login
@@ -333,7 +331,7 @@ if st.session_state.page == "login":
 
 
 # ══════════════════════════════════════════════════════════
-# PAGE: PROFILE (new users only)
+# PAGE: PROFILE
 # ══════════════════════════════════════════════════════════
 
 if st.session_state.page == "profile":
@@ -386,16 +384,22 @@ if st.session_state.page == "profile":
 # PAGE: MAIN APP
 # ══════════════════════════════════════════════════════════
 
-user       = st.session_state.get("user") or {}
-name       = user.get("name", "User")
+user = st.session_state.get("user") or {}
+
+if not user:
+    st.session_state.page = "login"
+    st.rerun()
+
+name       = user.get("name", "")
 education  = user.get("education", "")
 job_target = user.get("job_target", "")
 email      = user.get("email", "")
-initials   = name[0].upper() if name else "U"
+initials   = name[0].upper() if name else "?"
 
 # ─── Sidebar ───────────────────────────────────────────────
 with st.sidebar:
 
+    # Welcome card
     st.markdown(f"""
     <div class="welcome-card">
         <div style="width:52px;height:52px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
@@ -408,34 +412,51 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button("🚪 Logout"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
+    st.markdown("---")
+
+    # ─── Settings ─────────────────────────────────────────
+    st.markdown("### ⚙️ Settings")
+
+    with st.expander("🎨 Appearance", expanded=False):
+        st.radio("Theme", ["Dark", "Light"], index=0, key="setting_theme",
+                 help="Visual theme preference")
+        st.select_slider("Font Size", options=["Small", "Medium", "Large"],
+                         value="Medium", key="setting_font")
+        st.caption("💡 Theme & font changes apply on next page reload.")
+
+    with st.expander("🔔 Notifications", expanded=False):
+        st.toggle("Email tips & career updates", value=False, key="setting_notif")
+        st.toggle("Show score improvement alerts", value=True, key="setting_alerts")
+        st.toggle("Job match notifications", value=True, key="setting_job_notif")
+
+    with st.expander("👤 Account & Profile", expanded=False):
+        st.markdown(f"**📧 Email:** `{email}`")
+        st.markdown(f"**👤 Name:** {name}")
+        st.markdown(f"**🎓 Education:** {education}")
+        st.markdown(f"**🎯 Target Role:** {job_target}")
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        if st.button("✏️ Edit Profile", key="edit_profile_btn"):
+            st.session_state.page = "profile"
+            st.rerun()
+
+    with st.expander("❓ Help & Support", expanded=False):
+        st.markdown("""
+**📖 How to use:**
+1. Upload resume (PDF / DOCX / TXT)
+2. Click **Analyze My Resume**
+3. Explore all 8 tabs for insights
+
+**🔧 Having issues?**
+Email: `support@airesume.pro`
+
+**ℹ️ App Info**
+Version: `1.0.0`
+Built with Streamlit + Groq AI
+        """)
 
     st.markdown("---")
-    st.markdown("### 📋 Features")
-    st.markdown("""
-    ✅ Resume Parsing (PDF/DOCX/TXT)
-    ✅ AI Skill Extraction
-    ✅ Resume Score (0-100)
-    ✅ Strengths & Weaknesses
-    ✅ Visual Charts & Graphs
-    ✅ Smart Job Matching
-    ✅ Resume vs JD Matcher
-    ✅ Skill Gap Analysis
-    ✅ AI Learning Roadmap
-    ✅ Interview Questions
-    ✅ Resume Line Improver
-    ✅ AI Career Mentor Chat
-    ✅ Download PDF Report
-    """)
 
-    st.markdown("---")
-    st.markdown("### 🤖 Powered By")
-    st.markdown("• Groq + Llama 3.3\n• TF-IDF Vector Search\n• Plotly Charts\n• Firebase")
-
-    st.markdown("---")
+    # Resume Stats (shown after analysis)
     if 'skills' in st.session_state:
         st.markdown("### 📊 Resume Stats")
         st.metric("Skills Found", len(st.session_state['skills']))
@@ -443,6 +464,12 @@ with st.sidebar:
             st.metric("Resume Score", f"{st.session_state['resume_score']}/100")
         if 'jobs' in st.session_state:
             st.metric("Best Job Match", st.session_state['jobs'][0]['title'])
+        st.markdown("---")
+
+    if st.button("🚪 Logout", key="logout_btn"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
 
 
 # ─── Hero + Welcome Banner ─────────────────────────────────
