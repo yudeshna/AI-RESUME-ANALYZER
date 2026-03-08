@@ -311,11 +311,8 @@ if st.session_state.page == "login":
                         user_data = get_user(email)
                         st.session_state.otp_sent = False
                         st.session_state.otp_code = ""
-                        if user_data:
-                            st.session_state.user = user_data
-                            st.session_state.page = "app"
-                        else:
-                            st.session_state.page = "profile"
+                        # Always go to profile page after login
+                        st.session_state.page = "profile"
                         st.rerun()
                     else:
                         st.error("❌ Wrong OTP. Try again.")
@@ -356,13 +353,17 @@ if st.session_state.page == "profile":
         st.markdown(f"**📧 Logged in as:** `{st.session_state.otp_email}`")
         st.markdown("---")
 
-        name       = st.text_input("👤 Full Name", placeholder="e.g. Priya Sharma")
-        education  = st.text_input("🎓 Education / Degree", placeholder="e.g. B.Tech Computer Science")
-        job_target = st.text_input("🎯 Target Job Role", placeholder="e.g. Data Scientist, SDE, Product Manager")
-        purpose    = st.selectbox("📌 Why are you using this app?", [
-            "Campus Placement", "Internship", "Full-time Job",
-            "Career Switch", "Higher Studies", "Freelance / Gig Work"
-        ])
+        # Load existing saved details as suggestions
+        existing = get_user(st.session_state.otp_email) or {}
+
+        name       = st.text_input("👤 Full Name", value=existing.get("name", ""), placeholder="e.g. Priya Sharma")
+        education  = st.text_input("🎓 Education / Degree", value=existing.get("education", ""), placeholder="e.g. B.Tech Computer Science")
+        job_target = st.text_input("🎯 Target Job Role", value=existing.get("job_target", ""), placeholder="e.g. Data Scientist, SDE, Product Manager")
+
+        purpose_options = ["Campus Placement", "Internship", "Full-time Job", "Career Switch", "Higher Studies", "Freelance / Gig Work"]
+        saved_purpose = existing.get("purpose", "Campus Placement")
+        purpose_index = purpose_options.index(saved_purpose) if saved_purpose in purpose_options else 0
+        purpose = st.selectbox("📌 Why are you using this app?", purpose_options, index=purpose_index)
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
@@ -386,9 +387,6 @@ if st.session_state.page == "profile":
 # ══════════════════════════════════════════════════════════
 
 user       = st.session_state.get("user") or {}
-if not user:
-    st.session_state.page = "login"
-    st.rerun()
 name       = user.get("name", "User")
 education  = user.get("education", "")
 job_target = user.get("job_target", "")
