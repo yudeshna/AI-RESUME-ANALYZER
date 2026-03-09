@@ -251,7 +251,10 @@ def create_user(email, name, job_target, education, purpose):
 # SESSION STATE INIT
 # ══════════════════════════════════════════════════════════
 
-for key, val in [("page","login"),("otp_sent",False),("otp_code",""),("otp_email",""),("user",None)]:
+for key, val in [
+    ("page","login"),("otp_sent",False),("otp_code",""),("otp_email",""),
+    ("user",None),("bot_nickname",""),("chat_history",[]),("language","English")
+]:
     if key not in st.session_state:
         st.session_state[key] = val
 
@@ -365,14 +368,18 @@ if st.session_state.page == "profile":
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-        if st.button("🚀 Complete Setup & Enter App"):
+        if st.button("🚀 Complete Setup & Continue"):
             if name and education and job_target:
                 create_user(st.session_state.otp_email, name, job_target, education, purpose)
                 st.session_state.user = {
                     "email": st.session_state.otp_email, "name": name,
                     "education": education, "job_target": job_target, "purpose": purpose
                 }
-                st.session_state.page = "app"
+                # Go to nickname page only if no nickname set yet
+                if not st.session_state.bot_nickname:
+                    st.session_state.page = "nickname"
+                else:
+                    st.session_state.page = "app"
                 st.rerun()
             else:
                 st.error("❌ Please fill in all fields to continue.")
@@ -381,8 +388,59 @@ if st.session_state.page == "profile":
 
 
 # ══════════════════════════════════════════════════════════
-# PAGE: MAIN APP
+# PAGE: NICKNAME — What should we call our AI?
 # ══════════════════════════════════════════════════════════
+
+if st.session_state.page == "nickname":
+
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.markdown("""
+        <div style="height:30px"></div>
+        <div style="text-align:center;font-size:3.5rem;margin-bottom:0.5rem;">🤖</div>
+        <div class="profile-title">One Last Thing!</div>
+        <div class="profile-sub">Give your AI Career Mentor a name — make it yours!</div>
+        <div style="height:10px"></div>
+        <div style="text-align:center"><span class="step-badge">Step 3 of 3 — Personalize</span></div>
+        <div style="height:20px"></div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);
+                    border-radius:14px;padding:1.2rem;margin-bottom:1rem;text-align:center;">
+            <p style="color:#8892a4;font-size:0.88rem;margin:0 0 0.5rem;">
+                💡 Your AI mentor will use this name in every conversation.<br/>
+                You can change it anytime from Settings.
+            </p>
+            <p style="color:#5a6478;font-size:0.8rem;margin:0;">
+                Popular names: <b style="color:#00d4ff">Chitti</b> · <b style="color:#00d4ff">Jarvis</b> · 
+                <b style="color:#00d4ff">Nova</b> · <b style="color:#00d4ff">Aria</b> · <b style="color:#00d4ff">Max</b>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        nickname = st.text_input(
+            "🤖 Name your AI mentor",
+            placeholder="e.g. Chitti, Jarvis, Nova, Aria...",
+            max_chars=20,
+            label_visibility="collapsed"
+        )
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("✨ Set Name & Enter App", key="set_nickname_btn"):
+                final_nick = nickname.strip() if nickname.strip() else "Aria"
+                st.session_state.bot_nickname = final_nick
+                st.session_state.page = "app"
+                st.rerun()
+        with col_b:
+            if st.button("⏭️ Skip (Use 'Aria')", key="skip_nickname_btn"):
+                st.session_state.bot_nickname = "Aria"
+                st.session_state.page = "app"
+                st.rerun()
+
+    st.stop()
 
 user = st.session_state.get("user") or {}
 
@@ -399,72 +457,44 @@ initials   = name[0].upper() if name else "?"
 # ─── Sidebar ───────────────────────────────────────────────
 with st.sidebar:
 
+    bot_nick = st.session_state.get("bot_nickname", "Aria")
+
     # Welcome card
     st.markdown(f"""
     <div class="welcome-card">
         <div style="width:52px;height:52px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
                     border-radius:50%;display:flex;align-items:center;justify-content:center;
                     font-size:1.5rem;margin:0 auto 0.75rem;">{initials}</div>
-        <div class="welcome-name">👋 Welcome, {name}!</div>
+        <div class="welcome-name">👋 {name}</div>
         <div class="welcome-detail">🎓 {education}</div>
         <div class="welcome-detail">🎯 {job_target}</div>
         <div class="welcome-email">✉️ {email}</div>
+        <div style="margin-top:0.5rem;color:#7b2ff7;font-size:0.78rem;font-weight:600;">
+            🤖 AI Mentor: <span style="color:#00d4ff">{bot_nick}</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # ─── Settings ─────────────────────────────────────────
-    st.markdown("### ⚙️ Settings")
-
-    with st.expander("🎨 Appearance", expanded=False):
-        st.radio("Theme", ["Dark", "Light"], index=0, key="setting_theme",
-                 help="Visual theme preference")
-        st.select_slider("Font Size", options=["Small", "Medium", "Large"],
-                         value="Medium", key="setting_font")
-        st.caption("💡 Theme & font changes apply on next page reload.")
-
-    with st.expander("🔔 Notifications", expanded=False):
-        st.toggle("Email tips & career updates", value=False, key="setting_notif")
-        st.toggle("Show score improvement alerts", value=True, key="setting_alerts")
-        st.toggle("Job match notifications", value=True, key="setting_job_notif")
-
-    with st.expander("👤 Account & Profile", expanded=False):
-        st.markdown(f"**📧 Email:** `{email}`")
-        st.markdown(f"**👤 Name:** {name}")
-        st.markdown(f"**🎓 Education:** {education}")
-        st.markdown(f"**🎯 Target Role:** {job_target}")
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        if st.button("✏️ Edit Profile", key="edit_profile_btn"):
-            st.session_state.page = "profile"
-            st.rerun()
-
-    with st.expander("❓ Help & Support", expanded=False):
-        st.markdown("""
-**📖 How to use:**
-1. Upload resume (PDF / DOCX / TXT)
-2. Click **Analyze My Resume**
-3. Explore all 8 tabs for insights
-
-**🔧 Having issues?**
-Email: `support@airesume.pro`
-
-**ℹ️ App Info**
-Version: `1.0.0`
-Built with Streamlit + Groq AI
-        """)
-
-    st.markdown("---")
-
-    # Resume Stats (shown after analysis)
+    # Resume Stats
     if 'skills' in st.session_state:
         st.markdown("### 📊 Resume Stats")
         st.metric("Skills Found", len(st.session_state['skills']))
         if 'resume_score' in st.session_state:
-            st.metric("Resume Score", f"{st.session_state['resume_score']}/100")
+            score_val = st.session_state['resume_score']
+            score_color = "🟢" if score_val >= 70 else "🟡" if score_val >= 50 else "🔴"
+            st.metric("Resume Score", f"{score_color} {score_val}/100")
         if 'jobs' in st.session_state:
             st.metric("Best Job Match", st.session_state['jobs'][0]['title'])
         st.markdown("---")
+
+    # Bottom actions
+    st.markdown("<div style='flex:1'></div>", unsafe_allow_html=True)
+
+    if st.button("⚙️ Settings", key="goto_settings_btn"):
+        st.session_state.page = "settings"
+        st.rerun()
 
     if st.button("🚪 Logout", key="logout_btn"):
         for key in list(st.session_state.keys()):
@@ -472,7 +502,139 @@ Built with Streamlit + Groq AI
         st.rerun()
 
 
-# ─── Hero + Welcome Banner ─────────────────────────────────
+# ══════════════════════════════════════════════════════════
+# PAGE: SETTINGS
+# ══════════════════════════════════════════════════════════
+
+if st.session_state.page == "settings":
+
+    bot_nick = st.session_state.get("bot_nickname", "Aria")
+
+    with st.sidebar:
+        st.markdown(f"""
+        <div class="welcome-card">
+            <div style="width:44px;height:44px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
+                        border-radius:50%;display:flex;align-items:center;justify-content:center;
+                        font-size:1.2rem;margin:0 auto 0.6rem;">{initials}</div>
+            <div class="welcome-name">{name}</div>
+            <div class="welcome-email">✉️ {email}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("---")
+        if st.button("← Back to App", key="settings_back"):
+            st.session_state.page = "app"
+            st.rerun()
+        if st.button("🚪 Logout", key="settings_logout"):
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            st.rerun()
+
+    st.markdown('<div class="hero-title">⚙️ Settings</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-sub">Manage your account, preferences and personalization</div>', unsafe_allow_html=True)
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+    s1, s2 = st.columns(2)
+
+    with s1:
+        # ── AI Mentor Personalization ──────────────────────
+        st.markdown("""<div class="section-title">🤖 AI Mentor Name</div>""", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);
+                    border-radius:12px;padding:1rem;margin-bottom:0.8rem;">
+            <p style="color:#8892a4;font-size:0.85rem;margin:0 0 0.3rem;">Current AI Mentor Name</p>
+            <p style="color:#00d4ff;font-size:1.4rem;font-weight:800;margin:0;">🤖 {bot_nick}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        new_nick = st.text_input("Change AI Mentor Name", placeholder="e.g. Chitti, Jarvis, Nova...",
+                                  max_chars=20, key="settings_nick_input")
+        st.caption("Popular: Chitti · Jarvis · Nova · Aria · Max · Zara · Atlas")
+        if st.button("💾 Save Mentor Name", key="save_nick_btn"):
+            if new_nick.strip():
+                st.session_state.bot_nickname = new_nick.strip()
+                st.success(f"✅ AI Mentor renamed to **{new_nick.strip()}**!")
+                st.rerun()
+            else:
+                st.error("Please enter a name.")
+
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+        # ── Language ──────────────────────────────────────
+        st.markdown("""<div class="section-title">🌐 Language</div>""", unsafe_allow_html=True)
+        languages = ["English", "Hindi", "Tamil", "Telugu", "Kannada", "Malayalam",
+                     "Bengali", "Marathi", "Gujarati", "Spanish", "French", "German"]
+        curr_lang = st.session_state.get("language", "English")
+        lang_idx = languages.index(curr_lang) if curr_lang in languages else 0
+        new_lang = st.selectbox("App Language", languages, index=lang_idx, key="settings_lang")
+        if st.button("💾 Save Language", key="save_lang_btn"):
+            st.session_state.language = new_lang
+            st.success(f"✅ Language set to **{new_lang}**!")
+
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+        # ── Appearance ────────────────────────────────────
+        st.markdown("""<div class="section-title">🎨 Appearance</div>""", unsafe_allow_html=True)
+        st.radio("Theme", ["Dark", "Light"], index=0, key="setting_theme")
+        st.select_slider("Font Size", options=["Small", "Medium", "Large"], value="Medium", key="setting_font")
+        st.caption("💡 Theme & font changes apply on next reload.")
+
+    with s2:
+        # ── Account & Profile ─────────────────────────────
+        st.markdown("""<div class="section-title">👤 Account & Profile</div>""", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="card">
+            <p style="color:#8892a4;font-size:0.82rem;margin:0 0 0.8rem;">Your saved profile details</p>
+            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">📧 Email:</b> {email}</p>
+            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">👤 Name:</b> {name}</p>
+            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">🎓 Education:</b> {education}</p>
+            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">🎯 Target Role:</b> {job_target}</p>
+            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">🤖 AI Mentor:</b> {bot_nick}</p>
+            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">🌐 Language:</b> {st.session_state.get('language','English')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("✏️ Edit Profile Details", key="settings_edit_profile"):
+            st.session_state.page = "profile"
+            st.rerun()
+
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+        # ── Notifications ─────────────────────────────────
+        st.markdown("""<div class="section-title">🔔 Notifications</div>""", unsafe_allow_html=True)
+        st.toggle("Email tips & career updates", value=False, key="setting_notif")
+        st.toggle("Show score improvement alerts", value=True, key="setting_alerts")
+        st.toggle("Job match notifications", value=True, key="setting_job_notif")
+
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+        # ── Help & Support ────────────────────────────────
+        st.markdown("""<div class="section-title">❓ Help & Support</div>""", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="card">
+            <p style="color:#c0cce0;font-size:0.88rem;margin:0 0 0.5rem;"><b>📖 How to use:</b></p>
+            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">1. Upload resume (PDF / DOCX / TXT)</p>
+            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">2. Click Analyze My Resume</p>
+            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">3. Explore all 7 tabs for insights</p>
+            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">4. Chat with your AI mentor anytime!</p>
+            <p style="color:#c0cce0;font-size:0.88rem;margin:0.8rem 0 0.3rem;"><b>🔧 Contact:</b></p>
+            <p style="color:#00d4ff;font-size:0.82rem;margin:0;">support@airesume.pro</p>
+            <p style="color:#5a6478;font-size:0.75rem;margin:0.5rem 0 0;">Version 1.0.0 · Built with Streamlit + Groq AI</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+        # ── Danger Zone ───────────────────────────────────
+        st.markdown("""<div class="section-title" style="border-left-color:#ff4444;color:#ff4444">⚠️ Session</div>""", unsafe_allow_html=True)
+        if st.button("🚪 Logout & Clear Session", key="settings_logout_main"):
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            st.rerun()
+
+    st.stop()
+
+
+# ══════════════════════════════════════════════════════════
+# PAGE: MAIN APP — guard
+# ══════════════════════════════════════════════════════════
 st.markdown('<div class="hero-title">🚀 AI Resume Analyzer Pro</div>', unsafe_allow_html=True)
 st.markdown('<div class="hero-sub">Upload your resume and get instant AI-powered career insights</div>', unsafe_allow_html=True)
 
@@ -488,7 +650,7 @@ st.markdown(f"""
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📄 Upload & Analyze", "📊 Visual Charts", "💼 Smart Job Match",
     "🔍 JD Matcher", "🎯 Interview Prep", "📚 Roadmap",
-    "💬 Career Chat", "✍️ Resume Improver"
+    f"💬 Chat with {st.session_state.get('bot_nickname','Aria')}", "✍️ Resume Improver"
 ])
 
 # ══════════════════════════════════════════════════════════
@@ -888,51 +1050,146 @@ with tab6:
             st.error("Please fill both fields!")
 
 # ══════════════════════════════════════════════════════════
-# TAB 7 — Career Chat
+# TAB 7 — Career Chat (WhatsApp-style)
 # ══════════════════════════════════════════════════════════
 with tab7:
-    st.markdown('<div class="section-title">💬 AI Career Mentor</div>', unsafe_allow_html=True)
-    st.markdown(f"Hi **{name}**! Ask me anything about your career 🤖")
+    bot_nick = st.session_state.get("bot_nickname", "Aria")
 
-    if 'chat_history' not in st.session_state:
-        st.session_state['chat_history'] = []
+    # Header bar like WhatsApp
+    st.markdown(f"""
+    <div style="background:linear-gradient(90deg,rgba(0,212,255,0.08),rgba(123,47,247,0.08));
+                border:1px solid rgba(0,212,255,0.15);border-radius:14px;
+                padding:0.75rem 1.2rem;display:flex;align-items:center;margin-bottom:0.5rem;">
+        <div style="width:40px;height:40px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
+                    border-radius:50%;display:flex;align-items:center;justify-content:center;
+                    font-size:1.2rem;margin-right:0.75rem;flex-shrink:0;">🤖</div>
+        <div>
+            <div style="color:white;font-weight:700;font-size:0.95rem;font-family:'Space Grotesk',sans-serif;">
+                {bot_nick}
+            </div>
+            <div style="color:#00d4ff;font-size:0.72rem;">● Online · AI Career Mentor</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    for msg in st.session_state['chat_history']:
-        if msg['role'] == 'user':
-            st.markdown(f'<div class="chat-user">👤 <b>You:</b> {msg["content"]}</div>',unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="chat-ai">🤖 <b>Mentor:</b> {msg["content"]}</div>',unsafe_allow_html=True)
+    # Chat window CSS
+    st.markdown("""
+    <style>
+    .chat-window {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 14px;
+        padding: 1rem;
+        min-height: 320px;
+        max-height: 420px;
+        overflow-y: auto;
+        margin-bottom: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .msg-user {
+        align-self: flex-end;
+        background: linear-gradient(135deg,#00d4ff,#0099bb);
+        color: #080c14;
+        border-radius: 16px 16px 4px 16px;
+        padding: 0.55rem 1rem;
+        max-width: 75%;
+        font-size: 0.88rem;
+        font-weight: 500;
+        word-wrap: break-word;
+    }
+    .msg-bot {
+        align-self: flex-start;
+        background: rgba(123,47,247,0.12);
+        border: 1px solid rgba(123,47,247,0.2);
+        color: #e0e8f0;
+        border-radius: 16px 16px 16px 4px;
+        padding: 0.55rem 1rem;
+        max-width: 80%;
+        font-size: 0.88rem;
+        word-wrap: break-word;
+    }
+    .msg-label-user { text-align:right; color:#5a6478; font-size:0.7rem; margin-bottom:2px; }
+    .msg-label-bot  { text-align:left;  color:#5a6478; font-size:0.7rem; margin-bottom:2px; }
+    .chat-empty {
+        text-align:center; color:#2a3040; padding: 3rem 1rem;
+        font-size: 0.9rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    qc1,qc2,qc3 = st.columns(3)
+    # Build chat HTML
+    if not st.session_state.chat_history:
+        chat_html = f"""
+        <div class="chat-window">
+            <div class="chat-empty">
+                🤖 <b style="color:#00d4ff">{bot_nick}</b> is ready!<br/>
+                Ask me anything about your career, resume, or job search.<br/><br/>
+                <span style="font-size:0.8rem;color:#2a3040">Type a message below to start chatting →</span>
+            </div>
+        </div>"""
+    else:
+        msgs_html = ""
+        for msg in st.session_state.chat_history:
+            if msg['role'] == 'user':
+                msgs_html += f'<div class="msg-label-user">You</div><div class="msg-user">{msg["content"]}</div>'
+            else:
+                msgs_html += f'<div class="msg-label-bot">{bot_nick}</div><div class="msg-bot">{msg["content"]}</div>'
+        chat_html = f'<div class="chat-window" id="chat-bottom">{msgs_html}</div>'
+
+    st.markdown(chat_html, unsafe_allow_html=True)
+
+    # Quick suggestion chips
+    st.markdown("<div style='margin-bottom:0.4rem;color:#5a6478;font-size:0.78rem;'>💡 Quick questions:</div>", unsafe_allow_html=True)
+    qc1, qc2, qc3, qc4 = st.columns(4)
     with qc1:
-        if st.button("Improve my resume?"): st.session_state['quick_q'] = "How can I improve my resume?"
+        if st.button("📝 Improve resume", key="q1"):
+            st.session_state['quick_q'] = "How can I improve my resume?"
     with qc2:
-        if st.button("Best jobs for me?"):
-            st.session_state['quick_q'] = f"Best jobs for skills: {', '.join(st.session_state.get('skills',[])[:5])}"
+        if st.button("💼 Best jobs for me", key="q2"):
+            st.session_state['quick_q'] = f"What are the best jobs for my skills: {', '.join(st.session_state.get('skills',[])[:5])}"
     with qc3:
-        if st.button("Crack tech interviews?"): st.session_state['quick_q'] = "Tips to crack technical interviews?"
+        if st.button("🎯 Interview tips", key="q3"):
+            st.session_state['quick_q'] = "Give me tips to crack technical interviews."
+    with qc4:
+        if st.button("📈 Salary advice", key="q4"):
+            st.session_state['quick_q'] = "How do I negotiate a better salary?"
 
-    ui = st.text_input("Ask anything:", value=st.session_state.pop('quick_q',''),
-                        placeholder="e.g. How do I become a Data Scientist?")
+    # Input row at bottom
+    inp_col, btn_col = st.columns([5, 1])
+    with inp_col:
+        user_msg = st.text_input(
+            "Message",
+            value=st.session_state.pop('quick_q', ''),
+            placeholder=f"Message {bot_nick}...",
+            key="chat_input",
+            label_visibility="collapsed"
+        )
+    with btn_col:
+        send = st.button("➤ Send", key="chat_send_btn")
 
-    if st.button("💬 Send", key="chat_btn"):
-        if ui.strip():
-            ctx = f"User: {name}, Education: {education}, Target: {job_target}."
-            if 'skills' in st.session_state:
-                ctx += f" Skills: {', '.join(st.session_state['skills'])}. Score: {st.session_state.get('resume_score','?')}/100."
-            with st.spinner("🤖 Thinking..."):
-                resp = client.chat.completions.create(model="llama-3.3-70b-versatile",
-                    messages=[{"role":"user","content":f"You are an expert career mentor.\n{ctx}\nAnswer in max 200 words.\nQuestion: {ui}"}])
-                ai_r = resp.choices[0].message.content
-            st.session_state['chat_history'].append({"role":"user","content":ui})
-            st.session_state['chat_history'].append({"role":"assistant","content":ai_r})
-            st.rerun()
-        else:
-            st.error("Please type a question!")
+    if send and user_msg.strip():
+        ctx = f"You are {bot_nick}, a friendly and expert AI career mentor. User: {name}, Education: {education}, Target: {job_target}."
+        if 'skills' in st.session_state:
+            ctx += f" Skills: {', '.join(st.session_state['skills'][:10])}. Resume Score: {st.session_state.get('resume_score','?')}/100."
+        ctx += f" Language: {st.session_state.get('language','English')}. Reply in that language. Be concise (max 150 words), warm and practical."
 
-    if st.session_state['chat_history']:
-        if st.button("🗑️ Clear Chat"):
-            st.session_state['chat_history'] = []
+        with st.spinner(f"💬 {bot_nick} is typing..."):
+            resp = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": f"{ctx}\n\nUser message: {user_msg.strip()}"}],
+                temperature=0.5
+            )
+            reply = resp.choices[0].message.content
+
+        st.session_state.chat_history.append({"role": "user", "content": user_msg.strip()})
+        st.session_state.chat_history.append({"role": "assistant", "content": reply})
+        st.rerun()
+
+    if st.session_state.chat_history:
+        if st.button("🗑️ Clear Chat", key="clear_chat_btn"):
+            st.session_state.chat_history = []
             st.rerun()
 
 # ══════════════════════════════════════════════════════════
