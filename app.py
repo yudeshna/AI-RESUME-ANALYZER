@@ -182,18 +182,42 @@ def send_email_otp(to_email: str, otp: str) -> bool:
         return False
 
 def send_sms_otp(phone: str, otp: str):
+    """
+    Sends OTP via Fast2SMS using the correct GET-based API format.
+    Returns (success: bool, message: str)
+    """
     try:
         key = st.secrets.get("FAST2SMS_KEY", "")
-        if not key: return False, "no_key"
-        import urllib.request, json as _j
-        payload = _j.dumps({"route":"otp","variables_values":otp,
-                             "numbers":phone.lstrip("+").lstrip("91")[-10:]}).encode()
-        req = urllib.request.Request("https://www.fast2sms.com/dev/bulkV2", data=payload,
-              headers={"authorization":key,"Content-Type":"application/json"})
-        res = urllib.request.urlopen(req, timeout=10)
-        data = _j.loads(res.read())
-        return (True,"ok") if data.get("return") else (False, data.get("message","err"))
-    except Exception as e: return False, str(e)
+        if not key:
+            return False, "no_key"
+
+        import urllib.request, urllib.parse, json as _j
+
+        # Clean phone — extract last 10 digits only
+        clean_phone = ''.join(filter(str.isdigit, phone))[-10:]
+        if len(clean_phone) != 10:
+            return False, "invalid_phone"
+
+        # Fast2SMS correct API — GET request with query params
+        params = urllib.parse.urlencode({
+            "authorization": key,
+            "route":         "otp",
+            "variables_values": otp,
+            "flash":         0,
+            "numbers":       clean_phone,
+        })
+        url = f"https://www.fast2sms.com/dev/bulkV2?{params}"
+        req = urllib.request.Request(url, headers={"cache-control": "no-cache"})
+        res = urllib.request.urlopen(req, timeout=15)
+        data = _j.loads(res.read().decode())
+
+        if data.get("return"):
+            return True, "ok"
+        else:
+            return False, str(data.get("message", "Unknown error from Fast2SMS"))
+
+    except Exception as e:
+        return False, str(e)
 
 
 # ══════════════════════════════════════════════════════════
@@ -309,8 +333,8 @@ if st.session_state.page == "login":
                 go_p     = st.form_submit_button("📨 Send OTP →", use_container_width=True)
 
             if go_p:
-                ph = phone_in.strip().replace(" ","").replace("-","")
-                if len(ph) >= 10:
+                ph = "".join(filter(str.isdigit, phone_in.strip()))[-10:]
+                if len(ph) == 10:
                     otp = str(random.randint(100000,999999))
                     with st.spinner("Sending OTP to your phone..."):
                         ok, msg = send_sms_otp(ph, otp)
@@ -320,11 +344,13 @@ if st.session_state.page == "login":
                         st.session_state.otp_uid  = ph
                         st.rerun()
                     elif msg == "no_key":
-                        st.error("❌ Phone OTP not configured. Please use Email instead.")
+                        st.warning("⚠️ Phone OTP is not enabled on this app yet.")
+                        st.info("👉 Please use **Email OTP** instead — it works perfectly!")
                     else:
-                        st.error(f"❌ SMS failed: {msg}")
+                        st.error("❌ SMS could not be sent. Please use Email OTP instead.")
+                        st.info(f"Technical detail: {msg}")
                 else:
-                    st.error("❌ Enter a valid 10-digit phone number.")
+                    st.error("❌ Enter a valid 10-digit mobile number (e.g. 9876543210).")
 
         # ── Step 3: OTP verify ────────────────────────────
         elif st.session_state.otp_sent:
