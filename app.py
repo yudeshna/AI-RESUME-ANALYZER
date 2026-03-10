@@ -3,6 +3,7 @@ import tempfile
 import os
 import random
 import smtplib
+import hashlib
 import pandas as pd
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -280,7 +281,6 @@ code, pre { font-family: 'Fira Code', 'Courier New', monospace; }
     background: transparent !important;
     padding: 0 !important;
 }
-/* Make form submit button match regular button style */
 [data-testid="stFormSubmitButton"] > button {
     background: linear-gradient(90deg, #00d4ff, #7b2ff7) !important;
     color: white !important; border: none !important;
@@ -292,7 +292,6 @@ code, pre { font-family: 'Fira Code', 'Courier New', monospace; }
 [data-testid="stFormSubmitButton"] > button:hover {
     opacity: 0.88 !important;
 }
-/* Enter hint label */
 .enter-hint {
     font-size: 0.72rem; color: #2a3a4a;
     text-align: right; margin-top: -0.4rem; margin-bottom: 0.5rem;
@@ -339,6 +338,50 @@ def send_otp_email(receiver_email, otp):
         return False
 
 
+def send_phone_otp(phone, otp):
+    """Send OTP via Fast2SMS. Returns (success: bool, mode: str)."""
+    try:
+        fast2sms_key = st.secrets.get("FAST2SMS_KEY", "")
+        if not fast2sms_key:
+            return False, "no_key"
+        import urllib.request, json as _json
+        url = "https://www.fast2sms.com/dev/bulkV2"
+        payload = _json.dumps({
+            "route": "otp",
+            "variables_values": otp,
+            "numbers": phone.lstrip("+").lstrip("91")[-10:]
+        }).encode()
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"authorization": fast2sms_key, "Content-Type": "application/json"}
+        )
+        res = urllib.request.urlopen(req, timeout=10)
+        data = _json.loads(res.read())
+        if data.get("return"):
+            return True, "sms"
+        return False, data.get("message", "unknown error")
+    except Exception as e:
+        return False, str(e)
+
+
+def _make_token(identifier):
+    """Generate a secure session token."""
+    raw = f"{identifier}-{datetime.datetime.now().isoformat()}-{random.randint(10000, 99999)}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
+def save_session_token(identifier, token):
+    """Save session token to Firebase for auto-login."""
+    try:
+        db.collection("sessions").document(token).set({
+            "identifier": identifier,
+            "created_at": datetime.datetime.now().isoformat()
+        })
+    except Exception:
+        pass  # Non-critical
+
+
 def get_user(email):
     doc = db.collection("users").document(email).get()
     return doc.to_dict() if doc.exists else None
@@ -372,7 +415,6 @@ def render_ai_analysis(raw_text):
         s = line.strip()
         if not s:
             continue
-        # Section headings (CAPS:)
         hm = re.match(r"^([A-Z][A-Z _&/\-]{2,}):(.*)$", s)
         if hm:
             key  = hm.group(1).strip()
@@ -383,32 +425,26 @@ def render_ai_analysis(raw_text):
             if val:
                 html += f'<div class="ai-summary-box" style="padding:0.5rem 1rem;margin:0.25rem 0 0.5rem;">{val}</div>'
             continue
-        # Bullet points
         if s.startswith("- ") or s.startswith("* "):
             text = s[2:].strip()
             html += f'<div class="ai-bullet"><span class="ai-bullet-icon">&#9656;</span><span class="ai-bullet-text">{text}</span></div>'
             continue
-        # Numbered items
         nm = re.match(r"^(\d+)\. (.+)$", s)
         if nm:
             n, text = nm.group(1), nm.group(2)
             html += f'<div class="ai-numbered"><div class="ai-num-badge">{n}</div><div class="ai-num-content"><div class="ai-num-title">{text}</div></div></div>'
             continue
-        # Score breakdown X/Y
         sm = re.match(r"^-?\s*(.+):\s*(\d+)/(\d+)\s*$", s)
         if sm:
             label, got, mx = sm.group(1).strip(), sm.group(2), sm.group(3)
             html += f'<div class="ai-score-row"><span class="ai-score-label">{label}</span><span class="ai-score-val">{got}/{mx}</span></div>'
             continue
-        # Separators
         if len(set(s)) <= 3 and set(s) <= set("=-_"):
             html += "<hr style='border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0.5rem 0'>"
             continue
-        # Emoji/hint lines
         if s[:2] in ("&#", "**"):
             html += f'<div style="color:#8892a4;font-size:0.83rem;padding:0.2rem 0.8rem;">{s}</div>'
             continue
-        # Normal text
         html += f'<div style="color:#9aaec8;font-size:0.88rem;padding:0.2rem 0.4rem;line-height:1.65;">{s}</div>'
     html += "</div>"
     return html
@@ -418,16 +454,17 @@ def render_ai_analysis(raw_text):
 # SESSION STATE INIT
 # ══════════════════════════════════════════════════════════
 
-# Defaults — only set if key missing (preserves page="login" set by logout)
 _defaults = {
-    "page": "login",
-    "otp_sent": False,
-    "otp_code": "",
-    "otp_email": "",
-    "user": None,
+    "page":         "login",
+    "otp_sent":     False,
+    "otp_code":     "",
+    "otp_email":    "",
+    "otp_phone":    "",       # ← FIXED: was missing
+    "login_method": "",       # ← FIXED: was missing
+    "user":         None,
     "bot_nickname": "",
     "chat_history": [],
-    "language": "English",
+    "language":     "English",
 }
 for _k, _v in _defaults.items():
     if _k not in st.session_state:
@@ -438,13 +475,9 @@ for _k, _v in _defaults.items():
 # PAGE: LOGIN
 # ══════════════════════════════════════════════════════════
 
-# ══════════════════════════════════════════════════════════
-# PAGE: LOGIN  (replace your existing login block with this)
-# ══════════════════════════════════════════════════════════
-
 if st.session_state.page == "login":
 
-    # ── Reset state when arriving fresh ──────────────────
+    # Reset state when arriving fresh
     if not st.session_state.get("otp_email") and not st.session_state.get("otp_phone"):
         st.session_state.otp_sent     = False
         st.session_state.otp_code     = ""
@@ -467,7 +500,6 @@ if st.session_state.page == "login":
             st.markdown("##### 👋 Sign in to continue")
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-            # FIX: use on_click callbacks instead of if st.button()
             def choose_email():
                 st.session_state.login_method = "email"
 
@@ -495,7 +527,7 @@ if st.session_state.page == "login":
                 🔒 Secure OTP login · No password needed · Free forever
             </div>""", unsafe_allow_html=True)
 
-        # ── STEP 2a: Email — enter address ────────────────
+        # ── STEP 2a: Email ────────────────────────────────
         elif st.session_state.login_method == "email" and not st.session_state.otp_sent:
             st.markdown("##### 📧 Sign in with Email OTP")
 
@@ -530,7 +562,7 @@ if st.session_state.page == "login":
                 else:
                     st.error("❌ Enter a valid email address.")
 
-        # ── STEP 2b: Phone — enter number ─────────────────
+        # ── STEP 2b: Phone ────────────────────────────────
         elif st.session_state.login_method == "phone" and not st.session_state.otp_sent:
             st.markdown("##### 📱 Sign in with Phone OTP")
 
@@ -568,7 +600,7 @@ if st.session_state.page == "login":
                 else:
                     st.error("❌ Enter a valid phone number (min 10 digits).")
 
-        # ── STEP 3: Enter OTP ──────────────────────────────
+        # ── STEP 3: Verify OTP ────────────────────────────
         elif st.session_state.otp_sent:
             _identifier = st.session_state.otp_email or st.session_state.otp_phone
             _is_email   = bool(st.session_state.otp_email)
@@ -609,7 +641,6 @@ if st.session_state.page == "login":
                         _saved.get("job_target")
                     )
                     if _has:
-                        # Returning user — straight to app
                         st.session_state.user = {
                             "email":      _id,
                             "name":       _saved["name"],
@@ -625,7 +656,6 @@ if st.session_state.page == "login":
                         st.query_params["s"] = _tok
                         st.session_state.page = "app"
                     else:
-                        # New user — profile page
                         st.session_state.page = "profile"
                     st.rerun()
                 else:
@@ -666,7 +696,6 @@ if st.session_state.page == "profile":
 
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        # Check if returning user (has saved data in Firebase)
         _otp_email = st.session_state.get("otp_email", "")
         _saved = get_user(_otp_email) or {} if _otp_email else {}
         _is_returning = bool(_saved.get("name") and _saved.get("education") and _saved.get("job_target"))
@@ -716,7 +745,6 @@ if st.session_state.page == "profile":
                     "email": _otp_email, "name": name,
                     "education": education, "job_target": job_target, "purpose": purpose
                 }
-                # Load saved nickname if exists
                 if not st.session_state.bot_nickname:
                     st.session_state.bot_nickname = _saved.get("bot_nickname", "")
                 if not st.session_state.bot_nickname:
@@ -731,7 +759,7 @@ if st.session_state.page == "profile":
 
 
 # ══════════════════════════════════════════════════════════
-# PAGE: NICKNAME — What should we call our AI?
+# PAGE: NICKNAME
 # ══════════════════════════════════════════════════════════
 
 if st.session_state.page == "nickname":
@@ -792,10 +820,14 @@ if st.session_state.page == "nickname":
 
     st.stop()
 
+
+# ══════════════════════════════════════════════════════════
+# AUTH GUARD — must be logged in to see below
+# ══════════════════════════════════════════════════════════
+
 user = st.session_state.get("user") or {}
 
 if not user:
-    # Not logged in — force back to login page cleanly
     st.session_state.clear()
     st.session_state.page = "login"
     st.rerun()
@@ -811,7 +843,6 @@ with st.sidebar:
 
     bot_nick = st.session_state.get("bot_nickname", "Aria")
 
-    # Welcome card
     st.markdown(f"""
     <div class="welcome-card">
         <div style="width:52px;height:52px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
@@ -829,7 +860,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Resume Stats
     if 'skills' in st.session_state:
         st.markdown("### 📊 Resume Stats")
         st.metric("Skills Found", len(st.session_state['skills']))
@@ -841,7 +871,6 @@ with st.sidebar:
             st.metric("Best Job Match", st.session_state['jobs'][0]['title'])
         st.markdown("---")
 
-    # Bottom actions
     st.markdown("<div style='flex:1'></div>", unsafe_allow_html=True)
 
     if st.button("⚙️ Settings", key="goto_settings_btn"):
@@ -888,7 +917,6 @@ if st.session_state.page == "settings":
     s1, s2 = st.columns(2)
 
     with s1:
-        # ── AI Mentor Personalization ──────────────────────
         st.markdown("""<div class="section-title">🤖 AI Mentor Name</div>""", unsafe_allow_html=True)
         st.markdown(f"""
         <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);
@@ -898,8 +926,7 @@ if st.session_state.page == "settings":
         </div>
         """, unsafe_allow_html=True)
         with st.form("nick_form", clear_on_submit=False):
-            new_nick = st.text_input("Change AI Mentor Name", placeholder="e.g. Chitti, Jarvis, Nova...",
-                                      max_chars=20)
+            new_nick = st.text_input("Change AI Mentor Name", placeholder="e.g. Chitti, Jarvis, Nova...", max_chars=20)
             save_nick = st.form_submit_button("💾 Save Mentor Name", use_container_width=True)
         st.caption("Popular: Chitti · Jarvis · Nova · Aria · Max · Zara · Atlas")
         if save_nick:
@@ -913,7 +940,6 @@ if st.session_state.page == "settings":
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-        # ── Language ──────────────────────────────────────
         st.markdown("""<div class="section-title">🌐 Language</div>""", unsafe_allow_html=True)
         languages = ["English", "Hindi", "Tamil", "Telugu", "Kannada", "Malayalam",
                      "Bengali", "Marathi", "Gujarati", "Spanish", "French", "German"]
@@ -928,14 +954,12 @@ if st.session_state.page == "settings":
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-        # ── Appearance ────────────────────────────────────
         st.markdown("""<div class="section-title">🎨 Appearance</div>""", unsafe_allow_html=True)
         st.radio("Theme", ["Dark", "Light"], index=0, key="setting_theme")
         st.select_slider("Font Size", options=["Small", "Medium", "Large"], value="Medium", key="setting_font")
         st.caption("💡 Theme & font changes apply on next reload.")
 
     with s2:
-        # ── Account & Profile ─────────────────────────────
         st.markdown("""<div class="section-title">👤 Account & Profile</div>""", unsafe_allow_html=True)
         st.markdown(f"""
         <div class="card">
@@ -954,7 +978,6 @@ if st.session_state.page == "settings":
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-        # ── Notifications ─────────────────────────────────
         st.markdown("""<div class="section-title">🔔 Notifications</div>""", unsafe_allow_html=True)
         st.toggle("Email tips & career updates", value=False, key="setting_notif")
         st.toggle("Show score improvement alerts", value=True, key="setting_alerts")
@@ -962,14 +985,13 @@ if st.session_state.page == "settings":
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-        # ── Help & Support ────────────────────────────────
         st.markdown("""<div class="section-title">❓ Help & Support</div>""", unsafe_allow_html=True)
         st.markdown("""
         <div class="card">
             <p style="color:#c0cce0;font-size:0.88rem;margin:0 0 0.5rem;"><b>📖 How to use:</b></p>
             <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">1. Upload resume (PDF / DOCX / TXT)</p>
             <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">2. Click Analyze My Resume</p>
-            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">3. Explore all 7 tabs for insights</p>
+            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">3. Explore all 8 tabs for insights</p>
             <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">4. Chat with your AI mentor anytime!</p>
             <p style="color:#c0cce0;font-size:0.88rem;margin:0.8rem 0 0.3rem;"><b>🔧 Contact:</b></p>
             <p style="color:#00d4ff;font-size:0.82rem;margin:0;">support@airesume.pro</p>
@@ -979,7 +1001,6 @@ if st.session_state.page == "settings":
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-        # ── Danger Zone ───────────────────────────────────
         st.markdown("""<div class="section-title" style="border-left-color:#ff4444;color:#ff4444">⚠️ Session</div>""", unsafe_allow_html=True)
         if st.button("🚪 Logout & Clear Session", key="settings_logout_main"):
             st.session_state.clear()
@@ -990,8 +1011,9 @@ if st.session_state.page == "settings":
 
 
 # ══════════════════════════════════════════════════════════
-# PAGE: MAIN APP — guard
+# PAGE: MAIN APP
 # ══════════════════════════════════════════════════════════
+
 st.markdown('<div class="hero-title">🚀 AI Resume Analyzer Pro</div>', unsafe_allow_html=True)
 st.markdown('<div class="hero-sub">Upload your resume and get instant AI-powered career insights</div>', unsafe_allow_html=True)
 
@@ -1003,7 +1025,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ─── Tabs ──────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📄 Upload & Analyze", "📊 Visual Charts", "💼 Smart Job Match",
     "🔍 JD Matcher", "🎯 Interview Prep", "📚 Roadmap",
@@ -1188,17 +1209,12 @@ with tab2:
         jobs       = st.session_state.get('jobs', [])
         analysis   = st.session_state.get('analysis', '')
 
-        # ── Parse score breakdown from analysis ──────────────
         breakdown = {}
         breakdown_labels = {
-            "Contact": "Contact & Info",
-            "Summary": "Summary",
-            "Experience": "Experience",
-            "Skills": "Skills",
-            "Education": "Education",
-            "Projects": "Projects",
-            "Certifications": "Certifications",
-            "Formatting": "Formatting"
+            "Contact": "Contact & Info", "Summary": "Summary",
+            "Experience": "Experience",  "Skills": "Skills",
+            "Education": "Education",    "Projects": "Projects",
+            "Certifications": "Certifications", "Formatting": "Formatting"
         }
         import re
         for key, label in breakdown_labels.items():
@@ -1206,7 +1222,6 @@ with tab2:
             if match:
                 breakdown[label] = {"got": int(match.group(1)), "max": int(match.group(2))}
 
-        # ── Row 1: Score Gauge + Skills Donut ────────────────
         col1, col2 = st.columns(2)
 
         with col1:
@@ -1215,20 +1230,18 @@ with tab2:
             color = "#00ff88" if score >= 70 else "#ffbb00" if score >= 50 else "#ff4444"
             label_text = "Job Ready! 🚀" if score >= 70 else "Needs Work 📈" if score >= 50 else "Urgent Fix ⚠️"
             fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=score,
+                mode="gauge+number", value=score,
                 domain={'x': [0, 1], 'y': [0, 1]},
                 title={'text': label_text, 'font': {'color': color, 'family': 'Sora', 'size': 14}},
                 number={'font': {'color': color, 'size': 48, 'family': 'Sora'}},
                 gauge={
                     'axis': {'range': [0, 100], 'tickcolor': "#5a6478", 'tickfont': {'color': '#5a6478'}},
                     'bar': {'color': color, 'thickness': 0.28},
-                    'bgcolor': "rgba(0,0,0,0)",
-                    'borderwidth': 0,
+                    'bgcolor': "rgba(0,0,0,0)", 'borderwidth': 0,
                     'steps': [
-                        {'range': [0, 50],  'color': 'rgba(255,68,68,0.12)'},
-                        {'range': [50, 70], 'color': 'rgba(255,187,0,0.12)'},
-                        {'range': [70, 100],'color': 'rgba(0,255,136,0.12)'}
+                        {'range': [0, 50],   'color': 'rgba(255,68,68,0.12)'},
+                        {'range': [50, 70],  'color': 'rgba(255,187,0,0.12)'},
+                        {'range': [70, 100], 'color': 'rgba(0,255,136,0.12)'}
                     ],
                     'threshold': {'line': {'color': color, 'width': 3}, 'thickness': 0.85, 'value': score}
                 }
@@ -1238,14 +1251,12 @@ with tab2:
 
         with col2:
             st.markdown("#### 🧠 Skills by Category")
-            st.markdown('<div class="chart-desc">Breakdown of your skills by domain. Hover over each slice to see how many skills you have per category. A balanced chart means you are well-rounded.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-desc">Breakdown of your skills by domain. Hover over each slice to see how many skills you have per category.</div>', unsafe_allow_html=True)
             if categories:
-                cat_names = list(categories.keys())
+                cat_names  = list(categories.keys())
                 cat_counts = [len(v) for v in categories.values()]
                 fig_pie = go.Figure(go.Pie(
-                    labels=cat_names,
-                    values=cat_counts,
-                    hole=0.5,
+                    labels=cat_names, values=cat_counts, hole=0.5,
                     textinfo='label+value',
                     hovertemplate='<b>%{label}</b><br>%{value} skills<br>%{percent}<extra></extra>',
                     marker=dict(colors=['#00d4ff','#7b2ff7','#00ff88','#ffbb00','#ff6b6b','#ff8c00','#a78bfa','#34d399'],
@@ -1260,10 +1271,9 @@ with tab2:
             else:
                 st.info("No skill categories detected yet.")
 
-        # ── Row 2: Score Breakdown Bar ────────────────────────
         if breakdown:
             st.markdown("#### 📋 Score Breakdown by Section")
-            st.markdown('<div class="chart-desc">How you scored in each section of your resume. Each bar shows your actual score vs the maximum possible. Focus on the shortest bars first.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-desc">How you scored in each section of your resume. Focus on the shortest bars first.</div>', unsafe_allow_html=True)
             bd_labels = list(breakdown.keys())
             bd_got    = [breakdown[k]["got"] for k in bd_labels]
             bd_max    = [breakdown[k]["max"] for k in bd_labels]
@@ -1271,38 +1281,32 @@ with tab2:
             bd_colors = ['#00ff88' if p >= 70 else '#ffbb00' if p >= 40 else '#ff4444' for p in bd_pct]
             fig_bd = go.Figure()
             fig_bd.add_trace(go.Bar(
-                name='Your Score', x=bd_labels, y=bd_got,
-                marker_color=bd_colors,
-                text=[f"{g}/{m}" for g, m in zip(bd_got, bd_max)],
-                textposition='outside',
+                name='Your Score', x=bd_labels, y=bd_got, marker_color=bd_colors,
+                text=[f"{g}/{m}" for g, m in zip(bd_got, bd_max)], textposition='outside',
                 hovertemplate='<b>%{x}</b><br>Got: %{y}<br>Max: %{customdata}<extra></extra>',
                 customdata=bd_max
             ))
             fig_bd.add_trace(go.Bar(
                 name='Remaining', x=bd_labels, y=[m - g for g, m in zip(bd_got, bd_max)],
-                marker_color='rgba(255,255,255,0.05)',
-                hoverinfo='skip'
+                marker_color='rgba(255,255,255,0.05)', hoverinfo='skip'
             ))
             fig_bd.update_layout(
                 barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 font={'color': 'white', 'family': 'DM Sans'},
                 xaxis={'tickfont': {'size': 11}}, yaxis={'visible': False},
                 height=320, margin=dict(t=30, b=10, l=10, r=10),
-                legend=dict(bgcolor='rgba(0,0,0,0)', font=dict(size=10)),
-                showlegend=True
+                legend=dict(bgcolor='rgba(0,0,0,0)', font=dict(size=10)), showlegend=True
             )
             st.plotly_chart(fig_bd, use_container_width=True)
 
-        # ── Row 3: Job Match Bar ──────────────────────────────
         if jobs:
             st.markdown("#### 💼 Job Match Scores")
-            st.markdown('<div class="chart-desc">How well your resume matches different job roles based on your skills and experience. Green bars (70%+) are your best-fit jobs to apply for right now.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-desc">How well your resume matches different job roles. Green bars (70%+) are your best-fit jobs.</div>', unsafe_allow_html=True)
             jt = [j['title'] for j in jobs[:8]]
             js = [j.get('match_score') or j.get('similarity_score', 0) for j in jobs[:8]]
             cb = ['#00ff88' if s >= 70 else '#ffbb00' if s >= 40 else '#ff4444' for s in js]
             fig_bar = go.Figure(go.Bar(
-                x=js, y=jt, orientation='h',
-                marker_color=cb,
+                x=js, y=jt, orientation='h', marker_color=cb,
                 text=[f"{s}%" for s in js], textposition='outside',
                 hovertemplate='<b>%{y}</b><br>Match: %{x}%<extra></extra>'
             ))
@@ -1315,10 +1319,9 @@ with tab2:
             )
             st.plotly_chart(fig_bar, use_container_width=True)
 
-        # ── Row 4: Skill Radar ────────────────────────────────
         if categories and len(categories) >= 3:
             st.markdown("#### 🕸️ Skill Coverage Radar")
-            st.markdown('<div class="chart-desc">A radar (spider) chart showing how many skills you have in each category. A larger, rounder shape means broader skill coverage. Narrow spikes mean you are specialized in few areas.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-desc">A radar chart showing skill coverage across categories. A larger shape means broader coverage.</div>', unsafe_allow_html=True)
             rc = list(categories.keys())
             rv = [len(v) for v in categories.values()]
             rc_closed = rc + [rc[0]]
@@ -1341,20 +1344,17 @@ with tab2:
             )
             st.plotly_chart(fig_r, use_container_width=True)
 
-        # ── Score Comparison (if previous exists) ─────────────
         if 'previous_score' in st.session_state:
             prev = st.session_state['previous_score']
             st.markdown("#### 📈 Score Improvement")
-            st.markdown('<div class="chart-desc">Comparison between your previous upload and current resume score. Green bar = improvement!</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-desc">Comparison between your previous and current resume score.</div>', unsafe_allow_html=True)
             diff = score - prev
             c_prev = '#ff6b6b' if prev < score else '#00ff88'
             c_curr = '#00ff88' if score >= prev else '#ff4444'
             fig_c = go.Figure(go.Bar(
-                x=['Previous Resume', 'Current Resume'],
-                y=[prev, score],
+                x=['Previous Resume', 'Current Resume'], y=[prev, score],
                 marker_color=[c_prev, c_curr],
-                text=[f"{prev}/100", f"{score}/100"],
-                textposition='outside',
+                text=[f"{prev}/100", f"{score}/100"], textposition='outside',
                 hovertemplate='%{x}: %{y}/100<extra></extra>'
             ))
             fig_c.update_layout(
@@ -1413,50 +1413,37 @@ with tab4:
         if jd_submitted:
             if jd_text.strip():
                 with st.spinner("🤖 AI comparing..."):
-                    prompt = f"""You are a senior ATS (Applicant Tracking System) expert and technical recruiter with 15+ years at top tech companies.
+                    prompt = f"""You are a senior ATS expert and technical recruiter with 15+ years experience.
 
 Perform a DEEP, ACCURATE analysis comparing the resume against the job description.
 
 === SCORING METHODOLOGY ===
 MATCH SCORE (0-100): Based on % of JD requirements covered by resume
-- Count total required skills/qualifications in JD
-- Count how many the resume has
-- Score = (matched / total) * 100, adjusted for experience level fit
-
 ATS SCORE (0-100): Based on keyword density and formatting
-- Exact keyword matches from JD found in resume
-- Proper section headings (Experience, Skills, Education)
-- Quantified achievements present
-- No tables/columns that break ATS parsing
 
 === RESPOND IN EXACTLY THIS FORMAT ===
 
-MATCH SCORE: [calculated number 0-100]
-
-ATS SCORE: [calculated number 0-100]
+MATCH SCORE: [0-100]
+ATS SCORE: [0-100]
 
 MATCHED KEYWORDS:
-- [exact keyword from JD found in resume]
-- [exact keyword from JD found in resume]
-- [list ALL matches, minimum 5]
+- [keyword]
 
 MISSING KEYWORDS:
-- [important keyword from JD NOT in resume]
-- [important keyword from JD NOT in resume]
-- [list top 5-8 missing keywords by importance]
+- [keyword]
 
 EXPERIENCE_FIT: [Junior/Mid/Senior] level resume vs [Junior/Mid/Senior] level JD
 OVERALL_FIT: [Poor/Fair/Good/Excellent]
 
 RECOMMENDATION:
-[3-4 specific sentences about this candidate's fit for this exact role. Mention specific skills they have vs what the JD needs. Be precise, not generic.]
+[3-4 specific sentences]
 
 TAILORING_TIPS:
-- [Specific tip 1: exact keyword to add and where]
-- [Specific tip 2: exact achievement to quantify]
-- [Specific tip 3: specific section to improve]
-- [Specific tip 4: specific skill gap to address]
-- [Specific tip 5: formatting or structure fix]
+- [Tip 1]
+- [Tip 2]
+- [Tip 3]
+- [Tip 4]
+- [Tip 5]
 
 INTERVIEW_PROBABILITY: [Low/Medium/High] — [1 sentence reason]
 
@@ -1482,14 +1469,14 @@ Job Description:
             try:
                 ats = min(int(''.join(filter(str.isdigit,[l for l in result.split('\n') if 'ATS SCORE:' in l][0]))),100)
             except: ats = 65
-            c1,c2 = st.columns(2)
+            c1, c2 = st.columns(2)
             with c1:
-                cc="#00ff88" if ms>=70 else "#ffbb00" if ms>=50 else "#ff4444"
-                st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc}">{ms}%</div><div style="color:#5a6478">JD Match</div></div>',unsafe_allow_html=True)
+                cc = "#00ff88" if ms>=70 else "#ffbb00" if ms>=50 else "#ff4444"
+                st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc}">{ms}%</div><div style="color:#5a6478">JD Match</div></div>', unsafe_allow_html=True)
                 st.progress(ms/100)
             with c2:
-                cc2="#00ff88" if ats>=70 else "#ffbb00" if ats>=50 else "#ff4444"
-                st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc2}">{ats}%</div><div style="color:#5a6478">ATS Score</div></div>',unsafe_allow_html=True)
+                cc2 = "#00ff88" if ats>=70 else "#ffbb00" if ats>=50 else "#ff4444"
+                st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc2}">{ats}%</div><div style="color:#5a6478">ATS Score</div></div>', unsafe_allow_html=True)
                 st.progress(ats/100)
             st.markdown(render_ai_analysis(result), unsafe_allow_html=True)
 
@@ -1501,7 +1488,7 @@ with tab5:
     if 'skills' not in st.session_state:
         st.info("👆 Please analyze your resume first!")
     else:
-        c1,c2 = st.columns(2)
+        c1, c2 = st.columns(2)
         with c1:
             jtl = [j['title'] for j in st.session_state.get('jobs',[])] or ["Data Scientist"]
             sel_job = st.selectbox("Select Target Job", jtl)
@@ -1531,19 +1518,15 @@ with tab5:
                     line = line.strip()
                     if not line:
                         continue
-                    # Section headings
                     if any(h in line.upper() for h in ["TECHNICAL QUESTIONS", "BEHAVIORAL QUESTIONS", "SITUATIONAL", "CASE QUESTIONS"]):
                         icon = "⚙️" if "TECHNICAL" in line.upper() else "🧠" if "BEHAVIORAL" in line.upper() else "💡"
                         clean = re.sub(r"[:#\*]+", "", line).strip()
                         html += f'<div class="ai-section-heading">{icon} {clean}</div>'
-                    # Numbered question line
                     elif re.match(r"^\d+\.", line):
                         q_num += 1
-                        # Parse: "1. Question text | Difficulty: Hard"
                         parts = line.split("|")
                         q_text = re.sub(r"^\d+\.\s*", "", parts[0]).strip()
                         diff_label = ""
-                        diff_class = "diff-medium"
                         if len(parts) > 1:
                             diff_match = re.search(r"(Easy|Medium|Hard)", parts[1], re.I)
                             if diff_match:
@@ -1558,14 +1541,11 @@ with tab5:
                                 {diff_label}
                             </div>
                         </div>'''
-                    # Hint / good answer line
                     elif line.startswith("→"):
                         hint_text = line.replace("→", "").replace("Good answer covers:", "").strip()
                         html += f'<div class="ai-num-hint" style="margin-left:2.2rem;margin-top:-0.3rem;margin-bottom:0.4rem;color:#5a7a96;font-size:0.78rem;">💡 {hint_text}</div>'
-                    # Skip separator lines
                     elif set(line) <= set("=-─━"):
                         html += "<hr style='border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0.5rem 0'>"
-                    # Regular text
                     else:
                         html += f'<div style="color:#8892a4;font-size:0.82rem;padding:0.2rem 0.6rem;">{line}</div>'
                 html += "</div>"
@@ -1584,8 +1564,8 @@ with tab6:
         st.info("Generate a custom roadmap below!")
 
     with st.form("roadmap_form", clear_on_submit=False):
-        c1,c2 = st.columns(2)
-        with c1: tj = st.text_input("Target Job Title", value=user.get('job_target',''))
+        c1, c2 = st.columns(2)
+        with c1: tj   = st.text_input("Target Job Title", value=user.get('job_target',''))
         with c2: miss = st.text_input("Skills to Learn", placeholder="e.g. Deep Learning, SQL")
         gen_roadmap = st.form_submit_button("📚 Generate Roadmap", use_container_width=True)
     if gen_roadmap:
@@ -1599,12 +1579,11 @@ with tab6:
             st.error("Please fill both fields!")
 
 # ══════════════════════════════════════════════════════════
-# TAB 7 — Career Chat (WhatsApp-style)
+# TAB 7 — Career Chat
 # ══════════════════════════════════════════════════════════
 with tab7:
     bot_nick = st.session_state.get("bot_nickname", "Aria")
 
-    # Header bar like WhatsApp
     st.markdown(f"""
     <div style="background:linear-gradient(90deg,rgba(0,212,255,0.08),rgba(123,47,247,0.08));
                 border:1px solid rgba(0,212,255,0.15);border-radius:14px;
@@ -1613,62 +1592,36 @@ with tab7:
                     border-radius:50%;display:flex;align-items:center;justify-content:center;
                     font-size:1.2rem;margin-right:0.75rem;flex-shrink:0;">🤖</div>
         <div>
-            <div style="color:white;font-weight:700;font-size:0.95rem;font-family:'Sora',sans-serif;">
-                {bot_nick}
-            </div>
+            <div style="color:white;font-weight:700;font-size:0.95rem;font-family:'Sora',sans-serif;">{bot_nick}</div>
             <div style="color:#00d4ff;font-size:0.72rem;">● Online · AI Career Mentor</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Chat window CSS
     st.markdown("""
     <style>
     .chat-window {
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 14px;
-        padding: 1rem;
-        min-height: 320px;
-        max-height: 420px;
-        overflow-y: auto;
-        margin-bottom: 0.75rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+        background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 14px; padding: 1rem; min-height: 320px; max-height: 420px;
+        overflow-y: auto; margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;
     }
     .msg-user {
-        align-self: flex-end;
-        background: linear-gradient(135deg,#00d4ff,#0099bb);
-        color: #080c14;
-        border-radius: 16px 16px 4px 16px;
-        padding: 0.55rem 1rem;
-        max-width: 75%;
-        font-size: 0.88rem;
-        font-weight: 500;
-        word-wrap: break-word;
+        align-self: flex-end; background: linear-gradient(135deg,#00d4ff,#0099bb); color: #080c14;
+        border-radius: 16px 16px 4px 16px; padding: 0.55rem 1rem; max-width: 75%;
+        font-size: 0.88rem; font-weight: 500; word-wrap: break-word;
     }
     .msg-bot {
-        align-self: flex-start;
-        background: rgba(123,47,247,0.12);
-        border: 1px solid rgba(123,47,247,0.2);
-        color: #e0e8f0;
-        border-radius: 16px 16px 16px 4px;
-        padding: 0.55rem 1rem;
-        max-width: 80%;
-        font-size: 0.88rem;
-        word-wrap: break-word;
+        align-self: flex-start; background: rgba(123,47,247,0.12);
+        border: 1px solid rgba(123,47,247,0.2); color: #e0e8f0;
+        border-radius: 16px 16px 16px 4px; padding: 0.55rem 1rem; max-width: 80%;
+        font-size: 0.88rem; word-wrap: break-word;
     }
     .msg-label-user { text-align:right; color:#5a6478; font-size:0.7rem; margin-bottom:2px; }
     .msg-label-bot  { text-align:left;  color:#5a6478; font-size:0.7rem; margin-bottom:2px; }
-    .chat-empty {
-        text-align:center; color:#2a3040; padding: 3rem 1rem;
-        font-size: 0.9rem;
-    }
+    .chat-empty { text-align:center; color:#2a3040; padding: 3rem 1rem; font-size: 0.9rem; }
     </style>
     """, unsafe_allow_html=True)
 
-    # Build chat HTML
     if not st.session_state.chat_history:
         chat_html = f"""
         <div class="chat-window">
@@ -1689,7 +1642,6 @@ with tab7:
 
     st.markdown(chat_html, unsafe_allow_html=True)
 
-    # Quick suggestion chips
     st.markdown("<div style='margin-bottom:0.4rem;color:#5a6478;font-size:0.78rem;'>💡 Quick questions:</div>", unsafe_allow_html=True)
     qc1, qc2, qc3, qc4 = st.columns(4)
     with qc1:
@@ -1705,7 +1657,6 @@ with tab7:
         if st.button("📈 Salary advice", key="q4"):
             st.session_state['quick_q'] = "How do I negotiate a better salary?"
 
-    # Input row at bottom — Enter key sends
     with st.form("chat_form", clear_on_submit=True):
         inp_col, btn_col = st.columns([5, 1])
         with inp_col:
@@ -1732,7 +1683,7 @@ with tab7:
             )
             reply = resp.choices[0].message.content
 
-        st.session_state.chat_history.append({"role": "user", "content": user_msg.strip()})
+        st.session_state.chat_history.append({"role": "user",      "content": user_msg.strip()})
         st.session_state.chat_history.append({"role": "assistant", "content": reply})
         st.rerun()
 
