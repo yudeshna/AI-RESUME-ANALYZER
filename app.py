@@ -431,6 +431,10 @@ for key, val in [
 # ══════════════════════════════════════════════════════════
 
 if st.session_state.page == "login":
+    # Reset OTP state cleanly on every fresh login page load
+    if not st.session_state.get("otp_email"):
+        st.session_state.otp_sent = False
+        st.session_state.otp_code = ""
 
     col_l, col_c, col_r = st.columns([1, 1.2, 1])
     with col_c:
@@ -542,13 +546,18 @@ if st.session_state.page == "profile":
         st.markdown(f"**📧 Logged in as:** `{st.session_state.otp_email}`")
         st.markdown("---")
 
-        # Load existing saved details as suggestions
-        existing = get_user(st.session_state.otp_email) or {}
+        # Only pre-fill if editing profile (user already set), blank for truly new
+        existing = get_user(st.session_state.get("otp_email","")) or {}
+        # If this is a returning user editing from settings, pre-fill. 
+        # If brand new user, leave blank.
+        prefill_name     = existing.get("name", "")
+        prefill_edu      = existing.get("education", "")
+        prefill_job      = existing.get("job_target", "")
 
         with st.form("profile_form", clear_on_submit=False):
-            name       = st.text_input("👤 Full Name", value=existing.get("name", ""), placeholder="e.g. Priya Sharma")
-            education  = st.text_input("🎓 Education / Degree", value=existing.get("education", ""), placeholder="e.g. B.Tech Computer Science")
-            job_target = st.text_input("🎯 Target Job Role", value=existing.get("job_target", ""), placeholder="e.g. Data Scientist, SDE, Product Manager")
+            name       = st.text_input("👤 Full Name", value=prefill_name, placeholder="e.g. Priya Sharma")
+            education  = st.text_input("🎓 Education / Degree", value=prefill_edu, placeholder="e.g. B.Tech Computer Science")
+            job_target = st.text_input("🎯 Target Job Role", value=prefill_job, placeholder="e.g. Data Scientist, SDE, Product Manager")
 
             purpose_options = ["Campus Placement", "Internship", "Full-time Job", "Career Switch", "Higher Studies", "Freelance / Gig Work"]
             saved_purpose = existing.get("purpose", "Campus Placement")
@@ -693,8 +702,10 @@ with st.sidebar:
         st.rerun()
 
     if st.button("🚪 Logout", key="logout_btn"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        keys_to_keep = []
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.session_state.page = "login"
         st.rerun()
 
 
@@ -723,6 +734,7 @@ if st.session_state.page == "settings":
         if st.button("🚪 Logout", key="settings_logout"):
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
+            st.session_state.page = "login"
             st.rerun()
 
     st.markdown('<div class="hero-title">⚙️ Settings</div>', unsafe_allow_html=True)
@@ -828,6 +840,7 @@ if st.session_state.page == "settings":
         if st.button("🚪 Logout & Clear Session", key="settings_logout_main"):
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
+            st.session_state.page = "login"
             st.rerun()
 
     st.stop()
