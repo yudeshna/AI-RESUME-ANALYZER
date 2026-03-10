@@ -272,6 +272,31 @@ code, pre { font-family: 'Fira Code', 'Courier New', monospace; }
     margin:0.2rem 0 0.8rem; padding:0.4rem 0.75rem;
     border-left:2px solid rgba(0,212,255,0.2);
 }
+
+/* ── Form & Enter-key UX ─────────────────────── */
+.stForm { border: none !important; padding: 0 !important; }
+[data-testid="stForm"] {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+/* Make form submit button match regular button style */
+[data-testid="stFormSubmitButton"] > button {
+    background: linear-gradient(90deg, #00d4ff, #7b2ff7) !important;
+    color: white !important; border: none !important;
+    border-radius: 10px !important; font-weight: 600 !important;
+    font-family: 'Sora', sans-serif !important;
+    transition: opacity 0.2s ease !important;
+    width: 100% !important;
+}
+[data-testid="stFormSubmitButton"] > button:hover {
+    opacity: 0.88 !important;
+}
+/* Enter hint label */
+.enter-hint {
+    font-size: 0.72rem; color: #2a3a4a;
+    text-align: right; margin-top: -0.4rem; margin-bottom: 0.5rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -420,22 +445,26 @@ if st.session_state.page == "login":
         st.markdown("---")
         st.markdown("##### 📧 Sign in with Email OTP")
 
-        email_input = st.text_input("Email Address", placeholder="you@example.com",
-                                     key="login_email", label_visibility="collapsed")
-
-        if st.button("📨 Send OTP →", key="send_otp_btn"):
-            if email_input.strip() and "@" in email_input and "." in email_input:
-                with st.spinner("Sending secure OTP to your inbox..."):
-                    otp = str(random.randint(100000, 999999))
-                    if send_otp_email(email_input.strip(), otp):
-                        st.session_state.otp_sent  = True
-                        st.session_state.otp_code  = otp
-                        st.session_state.otp_email = email_input.strip()
-                        st.success(f"✅ OTP sent to **{email_input.strip()}**")
-                    else:
-                        st.error("❌ Failed to send OTP. Try again.")
-            else:
-                st.error("❌ Enter a valid email address.")
+        # ── Email form (press Enter to submit) ──
+        if not st.session_state.otp_sent:
+            with st.form("email_form", clear_on_submit=False):
+                email_input = st.text_input("Email Address", placeholder="you@example.com",
+                                             key="login_email", label_visibility="collapsed")
+                submitted = st.form_submit_button("📨 Send OTP →", use_container_width=True)
+            st.markdown('<div class="enter-hint">⌨️ Press Enter or click the button</div>', unsafe_allow_html=True)
+            if submitted:
+                if email_input.strip() and "@" in email_input and "." in email_input:
+                    with st.spinner("Sending secure OTP to your inbox..."):
+                        otp = str(random.randint(100000, 999999))
+                        if send_otp_email(email_input.strip(), otp):
+                            st.session_state.otp_sent  = True
+                            st.session_state.otp_code  = otp
+                            st.session_state.otp_email = email_input.strip()
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to send OTP. Try again.")
+                else:
+                    st.error("❌ Enter a valid email address.")
 
         if st.session_state.otp_sent:
             st.markdown(f"""
@@ -445,41 +474,43 @@ if st.session_state.page == "login":
             </div>
             """, unsafe_allow_html=True)
 
-            otp_input = st.text_input("Enter 6-digit OTP", placeholder="e.g. 482910",
-                                       max_chars=6, key="otp_input", label_visibility="collapsed")
+            st.markdown('<div class="enter-hint">⌨️ Type your OTP and press Enter to verify</div>', unsafe_allow_html=True)
+            # ── OTP form (press Enter to verify) ──
+            with st.form("otp_form", clear_on_submit=False):
+                otp_input = st.text_input("Enter 6-digit OTP", placeholder="e.g. 482910",
+                                           max_chars=6, label_visibility="collapsed")
+                col_v, col_rs = st.columns(2)
+                with col_v:
+                    verify = st.form_submit_button("✅ Verify & Login", use_container_width=True)
+                with col_rs:
+                    resend = st.form_submit_button("🔄 Resend OTP", use_container_width=True)
 
-            col_v, col_rs = st.columns(2)
-            with col_v:
-                if st.button("✅ Verify & Login", key="verify_btn"):
-                    if otp_input.strip() == st.session_state.otp_code:
-                        st.session_state.otp_sent = False
-                        st.session_state.otp_code = ""
-                        # Check if returning user with saved profile
-                        existing_user = get_user(st.session_state.otp_email) or {}
-                        if existing_user.get("name") and existing_user.get("education") and existing_user.get("job_target"):
-                            # Returning user — load profile directly, skip profile+nickname pages
-                            st.session_state.user = {
-                                "email": st.session_state.otp_email,
-                                "name": existing_user["name"],
-                                "education": existing_user["education"],
-                                "job_target": existing_user["job_target"],
-                                "purpose": existing_user.get("purpose", "")
-                            }
-                            if not st.session_state.bot_nickname:
-                                st.session_state.bot_nickname = existing_user.get("bot_nickname", "Aria")
-                            st.session_state.page = "app"
-                        else:
-                            # New user — go through profile setup
-                            st.session_state.page = "profile"
-                        st.rerun()
+            if verify:
+                if otp_input.strip() == st.session_state.otp_code:
+                    st.session_state.otp_sent = False
+                    st.session_state.otp_code = ""
+                    existing_user = get_user(st.session_state.otp_email) or {}
+                    if existing_user.get("name") and existing_user.get("education") and existing_user.get("job_target"):
+                        st.session_state.user = {
+                            "email": st.session_state.otp_email,
+                            "name": existing_user["name"],
+                            "education": existing_user["education"],
+                            "job_target": existing_user["job_target"],
+                            "purpose": existing_user.get("purpose", "")
+                        }
+                        if not st.session_state.bot_nickname:
+                            st.session_state.bot_nickname = existing_user.get("bot_nickname", "Aria")
+                        st.session_state.page = "app"
                     else:
-                        st.error("❌ Wrong OTP. Try again.")
-            with col_rs:
-                if st.button("🔄 Resend OTP", key="resend_btn"):
-                    otp = str(random.randint(100000, 999999))
-                    if send_otp_email(st.session_state.otp_email, otp):
-                        st.session_state.otp_code = otp
-                        st.success("✅ New OTP sent!")
+                        st.session_state.page = "profile"
+                    st.rerun()
+                else:
+                    st.error("❌ Wrong OTP. Try again.")
+            if resend:
+                otp = str(random.randint(100000, 999999))
+                if send_otp_email(st.session_state.otp_email, otp):
+                    st.session_state.otp_code = otp
+                    st.success("✅ New OTP sent!")
 
         st.markdown("""
         <div style="text-align:center;margin-top:2rem;color:#2a3040;font-size:0.8rem;">
@@ -514,25 +545,26 @@ if st.session_state.page == "profile":
         # Load existing saved details as suggestions
         existing = get_user(st.session_state.otp_email) or {}
 
-        name       = st.text_input("👤 Full Name", value=existing.get("name", ""), placeholder="e.g. Priya Sharma")
-        education  = st.text_input("🎓 Education / Degree", value=existing.get("education", ""), placeholder="e.g. B.Tech Computer Science")
-        job_target = st.text_input("🎯 Target Job Role", value=existing.get("job_target", ""), placeholder="e.g. Data Scientist, SDE, Product Manager")
+        with st.form("profile_form", clear_on_submit=False):
+            name       = st.text_input("👤 Full Name", value=existing.get("name", ""), placeholder="e.g. Priya Sharma")
+            education  = st.text_input("🎓 Education / Degree", value=existing.get("education", ""), placeholder="e.g. B.Tech Computer Science")
+            job_target = st.text_input("🎯 Target Job Role", value=existing.get("job_target", ""), placeholder="e.g. Data Scientist, SDE, Product Manager")
 
-        purpose_options = ["Campus Placement", "Internship", "Full-time Job", "Career Switch", "Higher Studies", "Freelance / Gig Work"]
-        saved_purpose = existing.get("purpose", "Campus Placement")
-        purpose_index = purpose_options.index(saved_purpose) if saved_purpose in purpose_options else 0
-        purpose = st.selectbox("📌 Why are you using this app?", purpose_options, index=purpose_index)
+            purpose_options = ["Campus Placement", "Internship", "Full-time Job", "Career Switch", "Higher Studies", "Freelance / Gig Work"]
+            saved_purpose = existing.get("purpose", "Campus Placement")
+            purpose_index = purpose_options.index(saved_purpose) if saved_purpose in purpose_options else 0
+            purpose = st.selectbox("📌 Why are you using this app?", purpose_options, index=purpose_index)
 
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            submitted_profile = st.form_submit_button("🚀 Complete Setup & Continue", use_container_width=True)
 
-        if st.button("🚀 Complete Setup & Continue"):
+        if submitted_profile:
             if name and education and job_target:
                 create_user(st.session_state.otp_email, name, job_target, education, purpose)
                 st.session_state.user = {
                     "email": st.session_state.otp_email, "name": name,
                     "education": education, "job_target": job_target, "purpose": purpose
                 }
-                # Go to nickname page only if no nickname set yet
                 if not st.session_state.bot_nickname:
                     st.session_state.page = "nickname"
                 else:
@@ -577,30 +609,32 @@ if st.session_state.page == "nickname":
         """, unsafe_allow_html=True)
 
         st.markdown("---")
-        nickname = st.text_input(
-            "🤖 Name your AI mentor",
-            placeholder="e.g. Chitti, Jarvis, Nova, Aria...",
-            max_chars=20,
-            label_visibility="collapsed"
-        )
+        with st.form("nickname_form", clear_on_submit=False):
+            nickname = st.text_input(
+                "🤖 Name your AI mentor",
+                placeholder="e.g. Chitti, Jarvis, Nova, Aria...",
+                max_chars=20,
+                label_visibility="collapsed"
+            )
+            col_a, col_b = st.columns(2)
+            with col_a:
+                set_name = st.form_submit_button("✨ Set Name & Enter App", use_container_width=True)
+            with col_b:
+                skip_name = st.form_submit_button("⏭️ Skip (Use 'Aria')", use_container_width=True)
 
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("✨ Set Name & Enter App", key="set_nickname_btn"):
-                final_nick = nickname.strip() if nickname.strip() else "Aria"
-                st.session_state.bot_nickname = final_nick
-                # Save nickname to Firebase too
-                if st.session_state.user:
-                    db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": final_nick})
-                st.session_state.page = "app"
-                st.rerun()
-        with col_b:
-            if st.button("⏭️ Skip (Use 'Aria')", key="skip_nickname_btn"):
-                st.session_state.bot_nickname = "Aria"
-                if st.session_state.user:
-                    db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": "Aria"})
-                st.session_state.page = "app"
-                st.rerun()
+        if set_name:
+            final_nick = nickname.strip() if nickname.strip() else "Aria"
+            st.session_state.bot_nickname = final_nick
+            if st.session_state.user:
+                db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": final_nick})
+            st.session_state.page = "app"
+            st.rerun()
+        if skip_name:
+            st.session_state.bot_nickname = "Aria"
+            if st.session_state.user:
+                db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": "Aria"})
+            st.session_state.page = "app"
+            st.rerun()
 
     st.stop()
 
@@ -707,12 +741,15 @@ if st.session_state.page == "settings":
             <p style="color:#00d4ff;font-size:1.4rem;font-weight:800;margin:0;">🤖 {bot_nick}</p>
         </div>
         """, unsafe_allow_html=True)
-        new_nick = st.text_input("Change AI Mentor Name", placeholder="e.g. Chitti, Jarvis, Nova...",
-                                  max_chars=20, key="settings_nick_input")
+        with st.form("nick_form", clear_on_submit=False):
+            new_nick = st.text_input("Change AI Mentor Name", placeholder="e.g. Chitti, Jarvis, Nova...",
+                                      max_chars=20)
+            save_nick = st.form_submit_button("💾 Save Mentor Name", use_container_width=True)
         st.caption("Popular: Chitti · Jarvis · Nova · Aria · Max · Zara · Atlas")
-        if st.button("💾 Save Mentor Name", key="save_nick_btn"):
+        if save_nick:
             if new_nick.strip():
                 st.session_state.bot_nickname = new_nick.strip()
+                db.collection("users").document(email).update({"bot_nickname": new_nick.strip()})
                 st.success(f"✅ AI Mentor renamed to **{new_nick.strip()}**!")
                 st.rerun()
             else:
@@ -726,8 +763,10 @@ if st.session_state.page == "settings":
                      "Bengali", "Marathi", "Gujarati", "Spanish", "French", "German"]
         curr_lang = st.session_state.get("language", "English")
         lang_idx = languages.index(curr_lang) if curr_lang in languages else 0
-        new_lang = st.selectbox("App Language", languages, index=lang_idx, key="settings_lang")
-        if st.button("💾 Save Language", key="save_lang_btn"):
+        with st.form("lang_form", clear_on_submit=False):
+            new_lang = st.selectbox("App Language", languages, index=lang_idx)
+            save_lang = st.form_submit_button("💾 Save Language", use_container_width=True)
+        if save_lang:
             st.session_state.language = new_lang
             st.success(f"✅ Language set to **{new_lang}**!")
 
@@ -1212,8 +1251,10 @@ with tab4:
     if 'resume_text' not in st.session_state:
         st.info("👆 Please analyze your resume first!")
     else:
-        jd_text = st.text_area("Paste Job Description here:", height=250, placeholder="Paste job description...")
-        if st.button("🔍 Match Resume with JD", key="jd_btn"):
+        with st.form("jd_form", clear_on_submit=False):
+            jd_text = st.text_area("Paste Job Description here:", height=250, placeholder="Paste job description...")
+            jd_submitted = st.form_submit_button("🔍 Match Resume with JD", use_container_width=True)
+        if jd_submitted:
             if jd_text.strip():
                 with st.spinner("🤖 AI comparing..."):
                     prompt = f"""You are a senior ATS (Applicant Tracking System) expert and technical recruiter with 15+ years at top tech companies.
@@ -1386,10 +1427,12 @@ with tab6:
     else:
         st.info("Generate a custom roadmap below!")
 
-    c1,c2 = st.columns(2)
-    with c1: tj = st.text_input("Target Job Title", value=user.get('job_target',''))
-    with c2: miss = st.text_input("Skills to Learn", placeholder="e.g. Deep Learning, SQL")
-    if st.button("📚 Generate Roadmap", key="roadmap_btn"):
+    with st.form("roadmap_form", clear_on_submit=False):
+        c1,c2 = st.columns(2)
+        with c1: tj = st.text_input("Target Job Title", value=user.get('job_target',''))
+        with c2: miss = st.text_input("Skills to Learn", placeholder="e.g. Deep Learning, SQL")
+        gen_roadmap = st.form_submit_button("📚 Generate Roadmap", use_container_width=True)
+    if gen_roadmap:
         if tj and miss:
             with st.spinner("🤖 Building your roadmap..."):
                 rm = generate_skill_roadmap([s.strip() for s in miss.split(",")], tj)
@@ -1506,18 +1549,18 @@ with tab7:
         if st.button("📈 Salary advice", key="q4"):
             st.session_state['quick_q'] = "How do I negotiate a better salary?"
 
-    # Input row at bottom
-    inp_col, btn_col = st.columns([5, 1])
-    with inp_col:
-        user_msg = st.text_input(
-            "Message",
-            value=st.session_state.pop('quick_q', ''),
-            placeholder=f"Message {bot_nick}...",
-            key="chat_input",
-            label_visibility="collapsed"
-        )
-    with btn_col:
-        send = st.button("➤ Send", key="chat_send_btn")
+    # Input row at bottom — Enter key sends
+    with st.form("chat_form", clear_on_submit=True):
+        inp_col, btn_col = st.columns([5, 1])
+        with inp_col:
+            user_msg = st.text_input(
+                "Message",
+                value=st.session_state.pop('quick_q', ''),
+                placeholder=f"Message {bot_nick}...",
+                label_visibility="collapsed"
+            )
+        with btn_col:
+            send = st.form_submit_button("➤ Send", use_container_width=True)
 
     if send and user_msg.strip():
         ctx = f"You are {bot_nick}, a friendly and expert AI career mentor. User: {name}, Education: {education}, Target: {job_target}."
@@ -1549,8 +1592,10 @@ with tab8:
     st.markdown('<div class="section-title">✍️ Resume Line Improver</div>', unsafe_allow_html=True)
     st.markdown("Paste a weak bullet point → AI makes it powerful! 💪")
 
-    ol = st.text_area("Your resume line:", placeholder='"Worked on Python project"', height=100)
-    if st.button("✨ Improve This Line", key="improve_btn"):
+    with st.form("improver_form", clear_on_submit=False):
+        ol = st.text_area("Your resume line:", placeholder='"Worked on Python project"', height=100)
+        improve_sub = st.form_submit_button("✨ Improve This Line", use_container_width=True)
+    if improve_sub:
         if ol.strip():
             with st.spinner("🤖 Rewriting..."):
                 imp = improve_resume_line(ol)
