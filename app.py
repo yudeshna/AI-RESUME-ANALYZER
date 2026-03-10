@@ -1,9 +1,5 @@
 import streamlit as st
-import tempfile
-import os
-import random
-import smtplib
-import hashlib
+import tempfile, os, random, smtplib, hashlib, datetime
 import pandas as pd
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -11,291 +7,118 @@ import plotly.graph_objects as go
 import plotly.express as px
 import firebase_admin
 from firebase_admin import credentials, firestore
-import datetime
 from resume_parser import extract_text
 from skill_extractor import extract_skills, get_skill_categories
 from job_matcher import match_jobs
-from ai_analyzer import (
-    analyze_resume,
-    generate_interview_questions,
-    generate_skill_roadmap,
-    improve_resume_line
-)
+from ai_analyzer import analyze_resume, generate_interview_questions, generate_skill_roadmap, improve_resume_line
 from chroma_matcher import smart_job_match
 from pdf_report import generate_pdf_report
 from openai import OpenAI
 
-# ─── Groq Client ───────────────────────────────────────────
+# ── Groq ──────────────────────────────────────────────────
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
 )
 
-# ─── Firebase Setup ────────────────────────────────────────
+# ── Firebase ──────────────────────────────────────────────
 if not firebase_admin._apps:
-    firebase_key = dict(st.secrets["firebase"])
-    firebase_key["private_key"] = firebase_key["private_key"].replace("\\n", "\n")
-    cred = credentials.Certificate(firebase_key)
-    firebase_admin.initialize_app(cred)
-
+    fk = dict(st.secrets["firebase"])
+    fk["private_key"] = fk["private_key"].replace("\\n", "\n")
+    firebase_admin.initialize_app(credentials.Certificate(fk))
 db = firestore.client()
 
-# ─── Email Config ──────────────────────────────────────────
+# ── Email ─────────────────────────────────────────────────
 SENDER_EMAIL    = "nandu19jul@gmail.com"
 SENDER_PASSWORD = "geyc nypl ctnc xexm"
 
-# ─── Page Config ───────────────────────────────────────────
-st.set_page_config(
-    page_title="AI Resume Analyzer Pro",
-    page_icon="🚀",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# ── Page config ───────────────────────────────────────────
+st.set_page_config(page_title="AI Resume Analyzer Pro", page_icon="🚀",
+                   layout="wide", initial_sidebar_state="expanded")
 
-# ─── Global CSS ────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════
+# CSS
+# ══════════════════════════════════════════════════════════
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-* { font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
-h1, h2, h3, h4, h5, h6,
-.login-title, .profile-title, .hero-title, .section-title,
-[class*="section-title"], strong { font-family: 'Sora', sans-serif; }
-p, li, span, div { font-family: 'DM Sans', sans-serif; line-height: 1.65; }
-code, pre { font-family: 'Fira Code', 'Courier New', monospace; }
-
-.stApp { background: #080c14; }
-
-.login-logo {
-    font-family: 'Sora', sans-serif;
-    font-size: 1.1rem; font-weight: 700; color: #00d4ff;
-    letter-spacing: 2px; text-transform: uppercase;
-    text-align: center; margin-bottom: 0.5rem;
-}
-.login-title {
-    font-family: 'Sora', sans-serif;
-    font-size: 2.2rem; font-weight: 800;
-    background: linear-gradient(135deg, #ffffff 0%, #00d4ff 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    text-align: center; line-height: 1.2; margin-bottom: 0.5rem;
-}
-.login-sub { text-align: center; color: #5a6478; font-size: 0.95rem; margin-bottom: 2rem; }
-.otp-box {
-    background: rgba(0,212,255,0.05); border: 1px solid rgba(0,212,255,0.2);
-    border-radius: 16px; padding: 1.2rem; margin: 1rem 0; text-align: center;
-}
-.otp-box p { color: #8892a4; font-size: 0.88rem; margin: 0; }
-.otp-box strong { color: #00d4ff; }
-.profile-title {
-    font-family: 'Sora', sans-serif;
-    font-size: 1.8rem; font-weight: 800; color: white; margin-bottom: 0.3rem;
-    text-align: center;
-}
-.profile-sub { color: #5a6478; font-size: 0.95rem; text-align: center; }
-.step-badge {
-    display: inline-block;
-    background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2);
-    color: #00d4ff; padding: 4px 16px; border-radius: 20px;
-    font-size: 0.78rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
-}
-.welcome-card {
-    background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(123,47,247,0.08));
-    border: 1px solid rgba(0,212,255,0.15);
-    border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; text-align: center;
-}
-.welcome-name { font-family:'Sora',sans-serif; font-size:1rem; font-weight:700; color:white; margin-bottom:0.2rem; }
-.welcome-detail { color: #5a6478; font-size: 0.78rem; }
-.welcome-email { color: #00d4ff; font-size: 0.75rem; margin-top: 0.3rem; }
-.hero-title {
-    font-family: 'Sora', sans-serif;
-    font-size: 2.6rem; font-weight: 900;
-    background: linear-gradient(90deg, #00d4ff, #7b2ff7);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    text-align: center; padding: 0.5rem 0;
-}
-.hero-sub { text-align: center; color: #5a6478; font-size: 1rem; margin-bottom: 1.5rem; }
-.welcome-banner {
-    background: linear-gradient(90deg, rgba(0,212,255,0.06), rgba(123,47,247,0.06));
-    border: 1px solid rgba(0,212,255,0.12);
-    border-radius: 12px; padding: 0.9rem 1.5rem;
-    text-align: center; margin-bottom: 1.5rem;
-    font-size: 1rem; color: #c0cce0;
-}
-.welcome-banner span { color: #00d4ff; font-weight: 700; }
-.card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 16px; padding: 1.5rem; margin: 1rem 0;
-}
-.skill-tag {
-    display: inline-block;
-    background: rgba(0,212,255,0.07); border: 1px solid rgba(0,212,255,0.18);
-    color: #00d4ff; padding: 4px 12px; border-radius: 20px; margin: 4px; font-size: 0.82rem;
-}
-.section-title {
-    font-family: 'Sora', sans-serif;
-    font-size: 1.3rem; font-weight: 700; color: #00d4ff;
-    margin: 1rem 0 0.5rem 0; border-left: 3px solid #7b2ff7; padding-left: 0.75rem;
-}
-.stButton > button {
-    background: linear-gradient(90deg, #00d4ff, #7b2ff7);
-    color: white; border: none; border-radius: 10px;
-    padding: 0.6rem 2rem; font-weight: 600; font-size: 0.95rem; width: 100%;
-}
-.metric-card {
-    background: rgba(255,255,255,0.03); border-radius: 12px; padding: 1rem;
-    text-align: center; border: 1px solid rgba(255,255,255,0.07);
-}
-.chat-user {
-    background: rgba(0,212,255,0.06); border: 1px solid rgba(0,212,255,0.18);
-    border-radius: 12px; padding: 0.75rem 1rem; margin: 0.5rem 0; text-align: right;
-}
-.chat-ai {
-    background: rgba(123,47,247,0.06); border: 1px solid rgba(123,47,247,0.18);
-    border-radius: 12px; padding: 0.75rem 1rem; margin: 0.5rem 0;
-}
-@keyframes shake {
-    0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px) rotate(-3deg)}
-    40%{transform:translateX(10px) rotate(3deg)} 60%{transform:translateX(-10px) rotate(-3deg)}
-    80%{transform:translateX(10px) rotate(3deg)}
-}
-@keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.15);opacity:0.8} }
-@keyframes bounce { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-18px)} 60%{transform:translateY(-8px)} }
-@keyframes explode {
-    0%{transform:scale(0.3) rotate(0deg);opacity:0} 30%{transform:scale(2.5) rotate(-20deg);opacity:1}
-    60%{transform:scale(1.8) rotate(15deg);opacity:1} 100%{transform:scale(2.2) rotate(-5deg);opacity:0.7}
-}
-@keyframes flyaway {
-    0%{transform:translate(0,0) scale(1);opacity:1} 30%{transform:translate(-50px,-80px) scale(1.4);opacity:1}
-    70%{transform:translate(60px,-200px) scale(0.5);opacity:0.5} 100%{transform:translate(-30px,-320px) scale(0);opacity:0}
-}
-@keyframes flyaway2 {
-    0%{transform:translate(0,0) scale(1);opacity:1} 30%{transform:translate(60px,-70px) scale(1.3);opacity:1}
-    70%{transform:translate(-40px,-210px) scale(0.4);opacity:0.4} 100%{transform:translate(40px,-330px) scale(0);opacity:0}
-}
-@keyframes flyaway3 {
-    0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(90px,-340px) scale(0);opacity:0}
-}
-.anim-shake  {display:inline-block;animation:shake   0.6s ease infinite}
-.anim-pulse  {display:inline-block;animation:pulse   1.2s ease infinite}
-.anim-bounce {display:inline-block;animation:bounce  1.0s ease infinite}
-.anim-explode{display:inline-block;animation:explode 0.7s ease-out forwards}
-.anim-fly1   {display:inline-block;animation:flyaway  1.3s ease-out forwards}
-.anim-fly2   {display:inline-block;animation:flyaway2 1.5s ease-out 0.1s forwards}
-.anim-fly3   {display:inline-block;animation:flyaway3 1.1s ease-out 0.2s forwards}
-.banner-excellent {
-    background:linear-gradient(90deg,#00ff88,#00d4ff); border-radius:14px;
-    padding:1.2rem 2rem; text-align:center; font-size:1.5rem; font-weight:800;
-    color:#080c14; margin:1rem 0; box-shadow:0 0 30px rgba(0,255,136,0.25);
-}
-.banner-medium {
-    background:linear-gradient(90deg,#ffbb00,#ff8c00); border-radius:14px;
-    padding:1.2rem 2rem; text-align:center; font-size:1.5rem; font-weight:800;
-    color:#080c14; margin:1rem 0; box-shadow:0 0 30px rgba(255,187,0,0.25);
-}
-.banner-poor {
-    background:linear-gradient(90deg,#ff4444,#ff0000); border-radius:14px;
-    padding:1.2rem 2rem; text-align:center; font-size:1.5rem; font-weight:800;
-    color:white; margin:1rem 0; box-shadow:0 0 30px rgba(255,68,68,0.25);
-}
-
-/* ── AI Output Rendering ──────────────────────────── */
-.ai-block { font-family:'DM Sans',sans-serif; color:#d0dae8; line-height:1.75; }
-
-.ai-section-heading {
-    font-family:'Sora',sans-serif;
-    font-size:1.05rem; font-weight:700;
-    color:#00d4ff; letter-spacing:0.3px;
-    margin: 1.4rem 0 0.5rem; padding: 0.35rem 0.75rem;
-    border-left:3px solid #7b2ff7;
-    background:rgba(0,212,255,0.04); border-radius:0 8px 8px 0;
-}
-.ai-sub-heading {
-    font-family:'Sora',sans-serif;
-    font-size:0.9rem; font-weight:600; color:#b0c4de;
-    margin: 1rem 0 0.3rem;
-}
-.ai-bullet {
-    display:flex; align-items:flex-start; gap:0.5rem;
-    margin:0.35rem 0; padding:0.4rem 0.6rem;
-    border-radius:8px; background:rgba(255,255,255,0.02);
-}
-.ai-bullet-icon { color:#00d4ff; font-size:0.8rem; margin-top:3px; flex-shrink:0; }
-.ai-bullet-text { color:#c8d8e8; font-size:0.88rem; }
-
-.ai-numbered {
-    display:flex; align-items:flex-start; gap:0.6rem;
-    margin:0.5rem 0; padding:0.5rem 0.75rem;
-    background:rgba(123,47,247,0.05); border-radius:10px;
-    border-left:2px solid rgba(123,47,247,0.3);
-}
-.ai-num-badge {
-    background:linear-gradient(135deg,#00d4ff,#7b2ff7);
-    color:white; font-family:'Sora',sans-serif;
-    font-size:0.72rem; font-weight:700; width:22px; height:22px;
-    border-radius:50%; display:flex; align-items:center;
-    justify-content:center; flex-shrink:0; margin-top:1px;
-}
-.ai-num-content { flex:1; }
-.ai-num-title { font-family:'Sora',sans-serif; font-weight:600; font-size:0.9rem; color:#e0eaf4; }
-.ai-num-hint { font-size:0.8rem; color:#6a7f96; margin-top:2px; }
-.ai-num-diff {
-    font-size:0.72rem; font-weight:600; padding:2px 8px; border-radius:10px;
-    margin-top:3px; display:inline-block;
-}
-.diff-easy { background:rgba(0,255,136,0.12); color:#00ff88; }
-.diff-medium { background:rgba(255,187,0,0.12); color:#ffbb00; }
-.diff-hard { background:rgba(255,68,68,0.12); color:#ff6b6b; }
-
-.ai-score-row {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:0.5rem 0.75rem; margin:0.3rem 0;
-    background:rgba(255,255,255,0.03); border-radius:8px;
-}
-.ai-score-label { font-family:'Sora',sans-serif; font-size:0.82rem; color:#8892a4; }
-.ai-score-val { font-family:'Sora',sans-serif; font-weight:700; font-size:0.88rem; color:#00d4ff; }
-
-.ai-tag {
-    display:inline-block; padding:3px 10px; border-radius:12px; margin:3px;
-    font-size:0.78rem; font-weight:500;
-}
-.tag-green { background:rgba(0,255,136,0.1); color:#00ff88; border:1px solid rgba(0,255,136,0.2); }
-.tag-red   { background:rgba(255,68,68,0.1);  color:#ff6b6b; border:1px solid rgba(255,68,68,0.2); }
-.tag-blue  { background:rgba(0,212,255,0.1);  color:#00d4ff; border:1px solid rgba(0,212,255,0.2); }
-
-.ai-summary-box {
-    background:rgba(0,212,255,0.04); border:1px solid rgba(0,212,255,0.12);
-    border-radius:12px; padding:1rem 1.2rem; margin:1rem 0;
-    font-size:0.9rem; color:#b8cce0; line-height:1.7;
-}
-.chart-desc {
-    font-size:0.82rem; color:#5a6478; font-style:italic;
-    margin:0.2rem 0 0.8rem; padding:0.4rem 0.75rem;
-    border-left:2px solid rgba(0,212,255,0.2);
-}
-
-/* ── Form & Enter-key UX ─────────────────────── */
-.stForm { border: none !important; padding: 0 !important; }
-[data-testid="stForm"] {
-    border: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-}
-[data-testid="stFormSubmitButton"] > button {
-    background: linear-gradient(90deg, #00d4ff, #7b2ff7) !important;
-    color: white !important; border: none !important;
-    border-radius: 10px !important; font-weight: 600 !important;
-    font-family: 'Sora', sans-serif !important;
-    transition: opacity 0.2s ease !important;
-    width: 100% !important;
-}
-[data-testid="stFormSubmitButton"] > button:hover {
-    opacity: 0.88 !important;
-}
-.enter-hint {
-    font-size: 0.72rem; color: #2a3a4a;
-    text-align: right; margin-top: -0.4rem; margin-bottom: 0.5rem;
-}
+*{font-family:'DM Sans',sans-serif;box-sizing:border-box;}
+h1,h2,h3,h4,h5,h6{font-family:'Sora',sans-serif;}
+.stApp{background:#080c14;}
+.login-title{font-family:'Sora',sans-serif;font-size:2.2rem;font-weight:800;
+  background:linear-gradient(135deg,#fff 0%,#00d4ff 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-align:center;line-height:1.2;margin-bottom:.5rem;}
+.login-sub{text-align:center;color:#5a6478;font-size:.95rem;margin-bottom:1.5rem;}
+.otp-box{background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);
+  border-radius:16px;padding:1.2rem;margin:1rem 0;text-align:center;}
+.otp-box p{color:#8892a4;font-size:.88rem;margin:0;}
+.otp-box strong{color:#00d4ff;}
+.profile-title{font-family:'Sora',sans-serif;font-size:1.8rem;font-weight:800;
+  color:white;margin-bottom:.3rem;text-align:center;}
+.profile-sub{color:#5a6478;font-size:.95rem;text-align:center;}
+.step-badge{display:inline-block;background:rgba(0,212,255,.08);
+  border:1px solid rgba(0,212,255,.2);color:#00d4ff;padding:4px 16px;
+  border-radius:20px;font-size:.78rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.welcome-card{background:linear-gradient(135deg,rgba(0,212,255,.08),rgba(123,47,247,.08));
+  border:1px solid rgba(0,212,255,.15);border-radius:16px;padding:1.2rem;
+  margin-bottom:1rem;text-align:center;}
+.welcome-name{font-family:'Sora',sans-serif;font-size:1rem;font-weight:700;color:white;margin-bottom:.2rem;}
+.welcome-detail{color:#5a6478;font-size:.78rem;}
+.welcome-email{color:#00d4ff;font-size:.75rem;margin-top:.3rem;}
+.hero-title{font-family:'Sora',sans-serif;font-size:2.6rem;font-weight:900;
+  background:linear-gradient(90deg,#00d4ff,#7b2ff7);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-align:center;padding:.5rem 0;}
+.hero-sub{text-align:center;color:#5a6478;font-size:1rem;margin-bottom:1.5rem;}
+.welcome-banner{background:linear-gradient(90deg,rgba(0,212,255,.06),rgba(123,47,247,.06));
+  border:1px solid rgba(0,212,255,.12);border-radius:12px;padding:.9rem 1.5rem;
+  text-align:center;margin-bottom:1.5rem;font-size:1rem;color:#c0cce0;}
+.welcome-banner span{color:#00d4ff;font-weight:700;}
+.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  border-radius:16px;padding:1.5rem;margin:1rem 0;}
+.skill-tag{display:inline-block;background:rgba(0,212,255,.07);
+  border:1px solid rgba(0,212,255,.18);color:#00d4ff;padding:4px 12px;
+  border-radius:20px;margin:4px;font-size:.82rem;}
+.section-title{font-family:'Sora',sans-serif;font-size:1.3rem;font-weight:700;
+  color:#00d4ff;margin:1rem 0 .5rem;border-left:3px solid #7b2ff7;padding-left:.75rem;}
+.metric-card{background:rgba(255,255,255,.03);border-radius:12px;padding:1rem;
+  text-align:center;border:1px solid rgba(255,255,255,.07);}
+.stButton>button{background:linear-gradient(90deg,#00d4ff,#7b2ff7);color:white;
+  border:none;border-radius:10px;padding:.6rem 2rem;font-weight:600;font-size:.95rem;width:100%;}
+[data-testid="stFormSubmitButton"]>button{background:linear-gradient(90deg,#00d4ff,#7b2ff7)!important;
+  color:white!important;border:none!important;border-radius:10px!important;
+  font-weight:600!important;width:100%!important;}
+.chat-window{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+  border-radius:14px;padding:1rem;min-height:320px;max-height:420px;overflow-y:auto;
+  margin-bottom:.75rem;display:flex;flex-direction:column;gap:.5rem;}
+.msg-user{align-self:flex-end;background:linear-gradient(135deg,#00d4ff,#0099bb);color:#080c14;
+  border-radius:16px 16px 4px 16px;padding:.55rem 1rem;max-width:75%;font-size:.88rem;font-weight:500;}
+.msg-bot{align-self:flex-start;background:rgba(123,47,247,.12);border:1px solid rgba(123,47,247,.2);
+  color:#e0e8f0;border-radius:16px 16px 16px 4px;padding:.55rem 1rem;max-width:80%;font-size:.88rem;}
+.msg-label-user{text-align:right;color:#5a6478;font-size:.7rem;margin-bottom:2px;}
+.msg-label-bot{text-align:left;color:#5a6478;font-size:.7rem;margin-bottom:2px;}
+.chat-empty{text-align:center;color:#2a3040;padding:3rem 1rem;font-size:.9rem;}
+@keyframes bounce{0%,100%{transform:translateY(0)}30%{transform:translateY(-18px)}60%{transform:translateY(-8px)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-10px)}80%{transform:translateX(10px)}}
+@keyframes flyaway{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(-30px,-320px) scale(0);opacity:0}}
+@keyframes flyaway2{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(40px,-330px) scale(0);opacity:0}}
+@keyframes flyaway3{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(90px,-340px) scale(0);opacity:0}}
+@keyframes explode{0%{transform:scale(.3);opacity:0}30%{transform:scale(2.5);opacity:1}100%{transform:scale(2.2);opacity:.7}}
+.anim-bounce{display:inline-block;animation:bounce 1s ease infinite}
+.anim-pulse{display:inline-block;animation:pulse 1.2s ease infinite}
+.anim-shake{display:inline-block;animation:shake .6s ease infinite}
+.anim-fly1{display:inline-block;animation:flyaway 1.3s ease-out forwards}
+.anim-fly2{display:inline-block;animation:flyaway2 1.5s ease-out .1s forwards}
+.anim-fly3{display:inline-block;animation:flyaway3 1.1s ease-out .2s forwards}
+.anim-explode{display:inline-block;animation:explode .7s ease-out forwards}
+.banner-excellent{background:linear-gradient(90deg,#00ff88,#00d4ff);border-radius:14px;
+  padding:1.2rem 2rem;text-align:center;font-size:1.5rem;font-weight:800;color:#080c14;margin:1rem 0;}
+.banner-medium{background:linear-gradient(90deg,#ffbb00,#ff8c00);border-radius:14px;
+  padding:1.2rem 2rem;text-align:center;font-size:1.5rem;font-weight:800;color:#080c14;margin:1rem 0;}
+.banner-poor{background:linear-gradient(90deg,#ff4444,#ff0000);border-radius:14px;
+  padding:1.2rem 2rem;text-align:center;font-size:1.5rem;font-weight:800;color:white;margin:1rem 0;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -304,581 +127,407 @@ code, pre { font-family: 'Fira Code', 'Courier New', monospace; }
 # HELPER FUNCTIONS
 # ══════════════════════════════════════════════════════════
 
-def send_otp_email(receiver_email, otp):
+def make_token(uid: str) -> str:
+    raw = f"{uid}-{datetime.datetime.now().isoformat()}-{random.randint(10000,99999)}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:40]
+
+def save_token(uid: str, token: str):
+    db.collection("sessions").document(token).set({
+        "uid": uid, "created": datetime.datetime.now().isoformat()
+    })
+
+def get_uid_from_token(token: str):
+    try:
+        doc = db.collection("sessions").document(token).get()
+        return doc.to_dict().get("uid") if doc.exists else None
+    except: return None
+
+def delete_token(token: str):
+    try: db.collection("sessions").document(token).delete()
+    except: pass
+
+def get_user(uid: str):
+    try:
+        doc = db.collection("users").document(uid).get()
+        return doc.to_dict() if doc.exists else None
+    except: return None
+
+def save_user(uid, name, education, job_target, purpose, bot_nick="Aria"):
+    db.collection("users").document(uid).set({
+        "uid": uid, "name": name, "education": education,
+        "job_target": job_target, "purpose": purpose, "bot_nick": bot_nick
+    })
+
+def send_email_otp(to_email: str, otp: str) -> bool:
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = "🔐 Your OTP — AI Resume Analyzer Pro"
         msg["From"]    = SENDER_EMAIL
-        msg["To"]      = receiver_email
-        html = f"""
-        <div style="font-family:'Segoe UI',Arial,sans-serif;background:#080c14;padding:2.5rem;
-                    border-radius:16px;max-width:500px;margin:auto;border:1px solid rgba(255,255,255,0.08);">
-            <div style="text-align:center;margin-bottom:1.5rem;">
-                <div style="font-size:2.5rem;margin-bottom:0.5rem;">🚀</div>
-                <h2 style="color:#00d4ff;margin:0;font-size:1.4rem;font-weight:800;">AI Resume Analyzer Pro</h2>
-                <p style="color:#5a6478;font-size:0.9rem;margin:0.3rem 0 0;">Your login verification code</p>
-            </div>
-            <div style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);
-                        border-radius:12px;padding:1.5rem 2rem;text-align:center;margin:1.5rem 0;">
-                <p style="color:#8892a4;font-size:0.85rem;margin:0 0 0.5rem;">Your One-Time Password</p>
-                <div style="font-size:2.8rem;font-weight:900;color:white;letter-spacing:12px;font-family:monospace;">{otp}</div>
-            </div>
-            <p style="color:#5a6478;font-size:0.8rem;text-align:center;margin:0;">
-                ⏱️ Valid for 5 minutes &nbsp;·&nbsp; 🔒 Do not share this code
-            </p>
-        </div>
-        """
-        msg.attach(MIMEText(html, "html"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, receiver_email, msg.as_string())
+        msg["To"]      = to_email
+        msg.attach(MIMEText(f"""
+        <div style="font-family:Arial,sans-serif;background:#080c14;padding:2rem;border-radius:16px;max-width:480px;margin:auto;">
+          <h2 style="color:#00d4ff;text-align:center;">🚀 AI Resume Analyzer Pro</h2>
+          <p style="color:#8892a4;text-align:center;">Your one-time login code</p>
+          <div style="background:rgba(0,212,255,.08);border-radius:12px;padding:1.5rem;text-align:center;margin:1.5rem 0;">
+            <div style="font-size:2.8rem;font-weight:900;color:white;letter-spacing:12px;font-family:monospace;">{otp}</div>
+          </div>
+          <p style="color:#5a6478;text-align:center;font-size:.8rem;">⏱️ Valid for 10 minutes · 🔒 Do not share</p>
+        </div>""", "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+            s.login(SENDER_EMAIL, SENDER_PASSWORD)
+            s.sendmail(SENDER_EMAIL, to_email, msg.as_string())
         return True
     except Exception as e:
-        st.error(f"❌ Email error: {e}")
+        st.error(f"Email error: {e}")
         return False
 
-
-def send_phone_otp(phone, otp):
-    """Send OTP via Fast2SMS. Returns (success: bool, mode: str)."""
+def send_sms_otp(phone: str, otp: str):
     try:
-        fast2sms_key = st.secrets.get("FAST2SMS_KEY", "")
-        if not fast2sms_key:
-            return False, "no_key"
-        import urllib.request, json as _json
-        url = "https://www.fast2sms.com/dev/bulkV2"
-        payload = _json.dumps({
-            "route": "otp",
-            "variables_values": otp,
-            "numbers": phone.lstrip("+").lstrip("91")[-10:]
-        }).encode()
-        req = urllib.request.Request(
-            url,
-            data=payload,
-            headers={"authorization": fast2sms_key, "Content-Type": "application/json"}
-        )
+        key = st.secrets.get("FAST2SMS_KEY", "")
+        if not key: return False, "no_key"
+        import urllib.request, json as _j
+        payload = _j.dumps({"route":"otp","variables_values":otp,
+                             "numbers":phone.lstrip("+").lstrip("91")[-10:]}).encode()
+        req = urllib.request.Request("https://www.fast2sms.com/dev/bulkV2", data=payload,
+              headers={"authorization":key,"Content-Type":"application/json"})
         res = urllib.request.urlopen(req, timeout=10)
-        data = _json.loads(res.read())
-        if data.get("return"):
-            return True, "sms"
-        return False, data.get("message", "unknown error")
-    except Exception as e:
-        return False, str(e)
-
-
-def _make_token(identifier):
-    """Generate a secure session token."""
-    raw = f"{identifier}-{datetime.datetime.now().isoformat()}-{random.randint(10000, 99999)}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:32]
-
-
-def save_session_token(identifier, token):
-    """Save session token to Firebase for auto-login."""
-    try:
-        db.collection("sessions").document(token).set({
-            "identifier": identifier,
-            "created_at": datetime.datetime.now().isoformat()
-        })
-    except Exception:
-        pass  # Non-critical
-
-
-def get_user(email):
-    doc = db.collection("users").document(email).get()
-    return doc.to_dict() if doc.exists else None
-
-
-def create_user(email, name, job_target, education, purpose, bot_nickname="Aria"):
-    db.collection("users").document(email).set({
-        "email": email, "name": name,
-        "job_target": job_target, "education": education,
-        "purpose": purpose, "bot_nickname": bot_nickname
-    })
+        data = _j.loads(res.read())
+        return (True,"ok") if data.get("return") else (False, data.get("message","err"))
+    except Exception as e: return False, str(e)
 
 
 # ══════════════════════════════════════════════════════════
-# AI OUTPUT RENDERER
+# SESSION DEFAULTS
 # ══════════════════════════════════════════════════════════
-
-def render_ai_analysis(raw_text):
-    import re
-    html = '<div class="ai-block">'
-    lines = raw_text.split("\n")
-    section_icons = {
-        "SCORE": "&#127919;", "STRENGTH": "&#9989;", "WEAKNESS": "&#9888;",
-        "SUGGESTION": "&#128161;", "SUMMARY": "&#128203;",
-        "BREAKDOWN": "&#128202;", "ATS": "&#129302;",
-        "KEYWORD": "&#128273;", "RECOMMENDATION": "&#128204;",
-        "TAILORING": "&#128295;", "ROADMAP": "&#128506;",
-        "INTERVIEW": "&#127914;", "EXPERIENCE": "&#128084;", "OVERALL": "&#127942;",
-    }
-    for line in lines:
-        s = line.strip()
-        if not s:
-            continue
-        hm = re.match(r"^([A-Z][A-Z _&/\-]{2,}):(.*)$", s)
-        if hm:
-            key  = hm.group(1).strip()
-            val  = hm.group(2).strip()
-            icon = next((v for k, v in section_icons.items() if k in key), "&#128204;")
-            clean = key.replace("_", " ").title()
-            html += f'<div class="ai-section-heading">{icon} {clean}</div>'
-            if val:
-                html += f'<div class="ai-summary-box" style="padding:0.5rem 1rem;margin:0.25rem 0 0.5rem;">{val}</div>'
-            continue
-        if s.startswith("- ") or s.startswith("* "):
-            text = s[2:].strip()
-            html += f'<div class="ai-bullet"><span class="ai-bullet-icon">&#9656;</span><span class="ai-bullet-text">{text}</span></div>'
-            continue
-        nm = re.match(r"^(\d+)\. (.+)$", s)
-        if nm:
-            n, text = nm.group(1), nm.group(2)
-            html += f'<div class="ai-numbered"><div class="ai-num-badge">{n}</div><div class="ai-num-content"><div class="ai-num-title">{text}</div></div></div>'
-            continue
-        sm = re.match(r"^-?\s*(.+):\s*(\d+)/(\d+)\s*$", s)
-        if sm:
-            label, got, mx = sm.group(1).strip(), sm.group(2), sm.group(3)
-            html += f'<div class="ai-score-row"><span class="ai-score-label">{label}</span><span class="ai-score-val">{got}/{mx}</span></div>'
-            continue
-        if len(set(s)) <= 3 and set(s) <= set("=-_"):
-            html += "<hr style='border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0.5rem 0'>"
-            continue
-        if s[:2] in ("&#", "**"):
-            html += f'<div style="color:#8892a4;font-size:0.83rem;padding:0.2rem 0.8rem;">{s}</div>'
-            continue
-        html += f'<div style="color:#9aaec8;font-size:0.88rem;padding:0.2rem 0.4rem;line-height:1.65;">{s}</div>'
-    html += "</div>"
-    return html
+_D = {"page":"boot","otp_sent":False,"otp_code":"","otp_uid":"","login_method":"",
+      "user":None,"bot_nick":"Aria","chat_history":[],"language":"English","token":""}
+for k,v in _D.items():
+    if k not in st.session_state: st.session_state[k] = v
 
 
 # ══════════════════════════════════════════════════════════
-# SESSION STATE INIT
+# BOOT — check for saved session token in URL
 # ══════════════════════════════════════════════════════════
-
-_defaults = {
-    "page":         "login",
-    "otp_sent":     False,
-    "otp_code":     "",
-    "otp_email":    "",
-    "otp_phone":    "",       # ← FIXED: was missing
-    "login_method": "",       # ← FIXED: was missing
-    "user":         None,
-    "bot_nickname": "",
-    "chat_history": [],
-    "language":     "English",
-}
-for _k, _v in _defaults.items():
-    if _k not in st.session_state:
-        st.session_state[_k] = _v
+if st.session_state.page == "boot":
+    token = st.query_params.get("token","")
+    if token:
+        uid = get_uid_from_token(token)
+        if uid:
+            u = get_user(uid)
+            if u and u.get("name") and u.get("education"):
+                # ✅ Already logged in → go straight to app
+                st.session_state.user     = u
+                st.session_state.bot_nick = u.get("bot_nick","Aria")
+                st.session_state.language = u.get("language","English")
+                st.session_state.token    = token
+                st.session_state.page     = "app"
+            else:
+                # Has token but profile incomplete
+                st.session_state.otp_uid  = uid
+                st.session_state.token    = token
+                st.session_state.page     = "profile"
+        else:
+            st.query_params.clear()
+            st.session_state.page = "login"
+    else:
+        st.session_state.page = "login"
+    st.rerun()
 
 
 # ══════════════════════════════════════════════════════════
 # PAGE: LOGIN
 # ══════════════════════════════════════════════════════════
-
 if st.session_state.page == "login":
-
-    # Reset state when arriving fresh
-    if not st.session_state.get("otp_email") and not st.session_state.get("otp_phone"):
-        st.session_state.otp_sent     = False
-        st.session_state.otp_code     = ""
-        st.session_state.login_method = ""
-
-    col_l, col_c, col_r = st.columns([1, 1.2, 1])
-    with col_c:
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
         st.markdown("""
         <div style="height:40px"></div>
-        <div style="text-align:center;margin-bottom:0.5rem;font-size:3rem;">🚀</div>
-        <div class="login-logo">AI Resume Analyzer Pro</div>
+        <div style="text-align:center;font-size:3rem;margin-bottom:.4rem;">🚀</div>
+        <div style="text-align:center;font-size:.9rem;font-weight:700;color:#00d4ff;
+                    letter-spacing:2px;text-transform:uppercase;margin-bottom:.4rem;">
+            AI Resume Analyzer Pro
+        </div>
         <div class="login-title">Your Career,<br/>Supercharged by AI</div>
-        <div class="login-sub">Get your resume scored, matched to jobs,<br/>and interview-ready in under 60 seconds.</div>
+        <div class="login-sub">Score your resume · Match jobs · Ace interviews<br/>in under 60 seconds.</div>
         """, unsafe_allow_html=True)
-
         st.markdown("---")
 
-        # ── STEP 1: Choose login method ───────────────────
+        # ── Step 1: Choose method ─────────────────────────
         if not st.session_state.login_method and not st.session_state.otp_sent:
-            st.markdown("##### 👋 Sign in to continue")
+            st.markdown("##### 👋 How would you like to sign in?")
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-            def choose_email():
-                st.session_state.login_method = "email"
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("📧  Email OTP", key="btn_email", use_container_width=True):
+                    st.session_state.login_method = "email"
+                    st.rerun()
+            with c2:
+                if st.button("📱  Phone OTP", key="btn_phone", use_container_width=True):
+                    st.session_state.login_method = "phone"
+                    st.rerun()
 
-            def choose_phone():
-                st.session_state.login_method = "phone"
+            st.markdown("""<div style="text-align:center;margin-top:1.5rem;color:#2a3a4a;font-size:.8rem;">
+                🔒 OTP login · No password needed · Free forever</div>""", unsafe_allow_html=True)
 
-            col_e, col_p = st.columns(2)
-            with col_e:
-                st.button(
-                    "📧 Continue with Email",
-                    key="choose_email",
-                    on_click=choose_email,
-                    use_container_width=True
-                )
-            with col_p:
-                st.button(
-                    "📱 Continue with Phone",
-                    key="choose_phone",
-                    on_click=choose_phone,
-                    use_container_width=True
-                )
-
-            st.markdown("""
-            <div style="text-align:center;margin-top:2rem;color:#2a3040;font-size:0.8rem;">
-                🔒 Secure OTP login · No password needed · Free forever
-            </div>""", unsafe_allow_html=True)
-
-        # ── STEP 2a: Email ────────────────────────────────
+        # ── Step 2a: Email form ───────────────────────────
         elif st.session_state.login_method == "email" and not st.session_state.otp_sent:
-            st.markdown("##### 📧 Sign in with Email OTP")
-
-            def go_back():
+            st.markdown("##### 📧 Enter your Email")
+            if st.button("← Back", key="back_e"):
                 st.session_state.login_method = ""
+                st.rerun()
 
-            st.button("← Back", key="back_email", on_click=go_back)
-            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+            with st.form("form_email"):
+                email_in = st.text_input("Email", placeholder="you@example.com", label_visibility="collapsed")
+                go       = st.form_submit_button("📨 Send OTP →", use_container_width=True)
 
-            with st.form("email_form", clear_on_submit=False):
-                email_input = st.text_input(
-                    "Email Address",
-                    placeholder="you@example.com",
-                    label_visibility="collapsed"
-                )
-                submitted = st.form_submit_button("📨 Send OTP →", use_container_width=True)
-
-            st.markdown('<div class="enter-hint">⌨️ Press Enter or click the button</div>', unsafe_allow_html=True)
-
-            if submitted:
-                _e = email_input.strip()
-                if _e and "@" in _e and "." in _e:
+            if go:
+                e = email_in.strip()
+                if "@" in e and "." in e:
+                    otp = str(random.randint(100000,999999))
                     with st.spinner("Sending OTP to your inbox..."):
-                        otp = str(random.randint(100000, 999999))
-                        if send_otp_email(_e, otp):
-                            st.session_state.otp_sent  = True
-                            st.session_state.otp_code  = otp
-                            st.session_state.otp_email = _e
-                            st.rerun()
-                        else:
-                            st.error("❌ Failed to send OTP. Check your email and try again.")
+                        ok = send_email_otp(e, otp)
+                    if ok:
+                        st.session_state.otp_sent = True
+                        st.session_state.otp_code = otp
+                        st.session_state.otp_uid  = e
+                        st.rerun()
+                    else:
+                        st.error("❌ Could not send email. Please try again.")
                 else:
                     st.error("❌ Enter a valid email address.")
 
-        # ── STEP 2b: Phone ────────────────────────────────
+        # ── Step 2b: Phone form ───────────────────────────
         elif st.session_state.login_method == "phone" and not st.session_state.otp_sent:
-            st.markdown("##### 📱 Sign in with Phone OTP")
-
-            def go_back_phone():
+            st.markdown("##### 📱 Enter your Phone Number")
+            if st.button("← Back", key="back_p"):
                 st.session_state.login_method = ""
+                st.rerun()
 
-            st.button("← Back", key="back_phone", on_click=go_back_phone)
-            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+            with st.form("form_phone"):
+                phone_in = st.text_input("Phone", placeholder="+91 9876543210", label_visibility="collapsed")
+                go_p     = st.form_submit_button("📨 Send OTP →", use_container_width=True)
 
-            with st.form("phone_form", clear_on_submit=False):
-                phone_input = st.text_input(
-                    "Phone Number",
-                    placeholder="+91 9876543210",
-                    label_visibility="collapsed"
-                )
-                submitted_ph = st.form_submit_button("📨 Send OTP →", use_container_width=True)
-
-            st.markdown('<div class="enter-hint">⌨️ Press Enter or click the button</div>', unsafe_allow_html=True)
-
-            if submitted_ph:
-                _ph = phone_input.strip().replace(" ", "").replace("-", "")
-                if len(_ph) >= 10:
+            if go_p:
+                ph = phone_in.strip().replace(" ","").replace("-","")
+                if len(ph) >= 10:
+                    otp = str(random.randint(100000,999999))
                     with st.spinner("Sending OTP to your phone..."):
-                        otp = str(random.randint(100000, 999999))
-                        ok, mode = send_phone_otp(_ph, otp)
+                        ok, msg = send_sms_otp(ph, otp)
                     if ok:
-                        st.session_state.otp_sent  = True
-                        st.session_state.otp_code  = otp
-                        st.session_state.otp_phone = _ph
+                        st.session_state.otp_sent = True
+                        st.session_state.otp_code = otp
+                        st.session_state.otp_uid  = ph
                         st.rerun()
-                    elif mode == "no_key":
-                        st.error("❌ Fast2SMS key not configured. Add FAST2SMS_KEY to Streamlit secrets.")
+                    elif msg == "no_key":
+                        st.error("❌ Phone OTP not configured. Please use Email instead.")
                     else:
-                        st.error(f"❌ Could not send OTP: {mode}. Try email instead.")
+                        st.error(f"❌ SMS failed: {msg}")
                 else:
-                    st.error("❌ Enter a valid phone number (min 10 digits).")
+                    st.error("❌ Enter a valid 10-digit phone number.")
 
-        # ── STEP 3: Verify OTP ────────────────────────────
+        # ── Step 3: OTP verify ────────────────────────────
         elif st.session_state.otp_sent:
-            _identifier = st.session_state.otp_email or st.session_state.otp_phone
-            _is_email   = bool(st.session_state.otp_email)
+            uid      = st.session_state.otp_uid
+            is_email = "@" in uid
 
             st.markdown(f"""
             <div class="otp-box">
-                <p>OTP sent to <strong>{_identifier}</strong></p>
-                <p style="margin-top:0.3rem;font-size:0.78rem;">
-                    {'📧 Check your inbox &amp; spam folder' if _is_email else '📱 Check your SMS messages'}
+                <p>OTP sent to <strong>{uid}</strong></p>
+                <p style="margin-top:.3rem;font-size:.78rem;">
+                    {'📧 Check inbox &amp; spam folder' if is_email else '📱 Check your SMS messages'}
                 </p>
-            </div>
-            """, unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
 
-            st.markdown('<div class="enter-hint">⌨️ Enter OTP and press Enter</div>', unsafe_allow_html=True)
-
-            with st.form("otp_form", clear_on_submit=False):
-                otp_input = st.text_input(
-                    "Enter 6-digit OTP",
-                    placeholder="e.g. 482910",
-                    max_chars=6,
-                    label_visibility="collapsed"
-                )
-                col_v, col_rs = st.columns(2)
-                with col_v:
-                    verify = st.form_submit_button("✅ Verify & Login", use_container_width=True)
-                with col_rs:
-                    resend = st.form_submit_button("🔄 Resend OTP", use_container_width=True)
+            with st.form("form_otp"):
+                otp_in  = st.text_input("Enter 6-digit OTP", placeholder="e.g. 482910",
+                                        max_chars=6, label_visibility="collapsed")
+                cv, cr  = st.columns(2)
+                with cv: verify = st.form_submit_button("✅ Verify & Login", use_container_width=True)
+                with cr: resend = st.form_submit_button("🔄 Resend OTP",     use_container_width=True)
 
             if verify:
-                if otp_input.strip() == st.session_state.otp_code:
+                if otp_in.strip() == st.session_state.otp_code:
+                    # ✅ OTP correct — create persistent session token
+                    token = make_token(uid)
+                    save_token(uid, token)
+                    st.session_state.token    = token
                     st.session_state.otp_sent = False
                     st.session_state.otp_code = ""
-                    _id    = st.session_state.otp_email or st.session_state.otp_phone
-                    _saved = get_user(_id) or {}
-                    _has   = bool(
-                        _saved.get("name") and
-                        _saved.get("education") and
-                        _saved.get("job_target")
-                    )
-                    if _has:
-                        st.session_state.user = {
-                            "email":      _id,
-                            "name":       _saved["name"],
-                            "education":  _saved["education"],
-                            "job_target": _saved["job_target"],
-                            "purpose":    _saved.get("purpose", ""),
-                        }
-                        st.session_state.bot_nickname = _saved.get("bot_nickname", "Aria")
-                        st.session_state.language     = _saved.get("language", "English")
-                        _tok = _make_token(_id)
-                        save_session_token(_id, _tok)
-                        st.session_state.session_token = _tok
-                        st.query_params["s"] = _tok
-                        st.session_state.page = "app"
+                    st.query_params["token"]  = token   # 👈 saves in URL = stays after refresh
+
+                    # Check if this user already has a complete profile
+                    saved = get_user(uid)
+                    if saved and saved.get("name") and saved.get("education") and saved.get("job_target"):
+                        st.session_state.user     = saved
+                        st.session_state.bot_nick = saved.get("bot_nick","Aria")
+                        st.session_state.language = saved.get("language","English")
+                        st.session_state.page     = "app"     # 👈 returning user → straight to app
                     else:
-                        st.session_state.page = "profile"
+                        st.session_state.page     = "profile" # 👈 new user → fill profile first
                     st.rerun()
                 else:
-                    st.error("❌ Wrong OTP. Try again.")
+                    st.error("❌ Wrong OTP. Please try again.")
 
             if resend:
-                otp = str(random.randint(100000, 999999))
-                _id = st.session_state.otp_email or st.session_state.otp_phone
-                if st.session_state.otp_email:
-                    ok = send_otp_email(_id, otp)
-                    if ok:
-                        st.session_state.otp_code = otp
+                new_otp = str(random.randint(100000,999999))
+                if is_email:
+                    if send_email_otp(uid, new_otp):
+                        st.session_state.otp_code = new_otp
                         st.success("✅ New OTP sent to your inbox!")
-                    else:
-                        st.error("❌ Failed to resend. Check email settings.")
                 else:
-                    ok, mode = send_phone_otp(_id, otp)
+                    ok, msg = send_sms_otp(uid, new_otp)
                     if ok:
-                        st.session_state.otp_code = otp
+                        st.session_state.otp_code = new_otp
                         st.success("✅ New OTP sent to your phone!")
                     else:
-                        st.error(f"❌ Could not resend: {mode}")
-
-        st.markdown("""
-        <div style="text-align:center;margin-top:2rem;color:#2a3040;font-size:0.8rem;">
-            🔒 Secure login · No password needed · Free to use
-        </div>
-        """, unsafe_allow_html=True)
+                        st.error(f"❌ {msg}")
 
     st.stop()
 
 
 # ══════════════════════════════════════════════════════════
-# PAGE: PROFILE
+# PAGE: PROFILE  ← shown ONLY first time
 # ══════════════════════════════════════════════════════════
-
 if st.session_state.page == "profile":
+    uid      = st.session_state.otp_uid or (st.session_state.user or {}).get("uid","")
+    existing = get_user(uid) or {}
 
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
-        _otp_email = st.session_state.get("otp_email", "")
-        _saved = get_user(_otp_email) or {} if _otp_email else {}
-        _is_returning = bool(_saved.get("name") and _saved.get("education") and _saved.get("job_target"))
-
-        if _is_returning:
-            st.markdown("""
-            <div style="height:30px"></div>
-            <div style="text-align:center;font-size:3rem;margin-bottom:0.5rem;">👋</div>
-            <div class="profile-title">Welcome back!</div>
-            <div class="profile-sub">Confirm or update your details to continue</div>
-            <div style="height:10px"></div>
-            <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Confirm Details</span></div>
-            <div style="height:16px"></div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style="height:30px"></div>
-            <div style="text-align:center;font-size:3rem;margin-bottom:0.5rem;">👤</div>
-            <div class="profile-title">Almost there!</div>
-            <div class="profile-sub">Tell us about yourself to personalize your experience</div>
-            <div style="height:10px"></div>
-            <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Profile Setup</span></div>
-            <div style="height:16px"></div>
-            """, unsafe_allow_html=True)
-
-        st.markdown(f"**📧 Logged in as:** `{_otp_email}`")
-        st.markdown("---")
-
-        with st.form("profile_form", clear_on_submit=False):
-            name       = st.text_input("👤 Full Name",          value=_saved.get("name",""),       placeholder="e.g. Priya Sharma")
-            education  = st.text_input("🎓 Education / Degree", value=_saved.get("education",""),  placeholder="e.g. B.Tech Computer Science")
-            job_target = st.text_input("🎯 Target Job Role",    value=_saved.get("job_target",""), placeholder="e.g. Data Scientist, SDE, Product Manager")
-
-            purpose_options = ["Campus Placement", "Internship", "Full-time Job", "Career Switch", "Higher Studies", "Freelance / Gig Work"]
-            saved_purpose   = _saved.get("purpose", "Campus Placement")
-            purpose_index   = purpose_options.index(saved_purpose) if saved_purpose in purpose_options else 0
-            purpose = st.selectbox("📌 Why are you using this app?", purpose_options, index=purpose_index)
-
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            btn_label = "✅ Confirm & Enter App" if _is_returning else "🚀 Complete Setup & Continue"
-            submitted_profile = st.form_submit_button(btn_label, use_container_width=True)
-
-        if submitted_profile:
-            if name and education and job_target:
-                create_user(_otp_email, name, job_target, education, purpose)
-                st.session_state.user = {
-                    "email": _otp_email, "name": name,
-                    "education": education, "job_target": job_target, "purpose": purpose
-                }
-                if not st.session_state.bot_nickname:
-                    st.session_state.bot_nickname = _saved.get("bot_nickname", "")
-                if not st.session_state.bot_nickname:
-                    st.session_state.page = "nickname"
-                else:
-                    st.session_state.page = "app"
-                st.rerun()
-            else:
-                st.error("❌ Please fill in all fields to continue.")
-
-    st.stop()
-
-
-# ══════════════════════════════════════════════════════════
-# PAGE: NICKNAME
-# ══════════════════════════════════════════════════════════
-
-if st.session_state.page == "nickname":
-
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
+    _, col, _ = st.columns([1,1.5,1])
+    with col:
         st.markdown("""
         <div style="height:30px"></div>
-        <div style="text-align:center;font-size:3.5rem;margin-bottom:0.5rem;">🤖</div>
+        <div style="text-align:center;font-size:3rem;">👤</div>
+        <div class="profile-title">Almost there!</div>
+        <div class="profile-sub">Tell us about yourself — asked only once!</div>
+        <div style="height:10px"></div>
+        <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Profile Setup</span></div>
+        <div style="height:16px"></div>
+        """, unsafe_allow_html=True)
+        st.markdown(f"**Signed in as:** `{uid}`")
+        st.markdown("---")
+
+        with st.form("form_profile"):
+            name       = st.text_input("👤 Full Name",          value=existing.get("name",""),       placeholder="e.g. Priya Sharma")
+            education  = st.text_input("🎓 Education / Degree", value=existing.get("education",""),  placeholder="e.g. B.Tech Computer Science")
+            job_target = st.text_input("🎯 Target Job Role",    value=existing.get("job_target",""), placeholder="e.g. Data Scientist, SDE")
+            purposes   = ["Campus Placement","Internship","Full-time Job","Career Switch","Higher Studies","Freelance"]
+            sp         = existing.get("purpose","Campus Placement")
+            purpose    = st.selectbox("📌 Why are you here?", purposes,
+                                      index=purposes.index(sp) if sp in purposes else 0)
+            done       = st.form_submit_button("🚀 Save & Continue", use_container_width=True)
+
+        if done:
+            if name and education and job_target:
+                prev_nick = existing.get("bot_nick","")
+                save_user(uid, name, education, job_target, purpose, prev_nick or "Aria")
+                st.session_state.user = {"uid":uid,"name":name,"education":education,
+                                         "job_target":job_target,"purpose":purpose,
+                                         "bot_nick": prev_nick or "Aria"}
+                st.session_state.bot_nick = prev_nick or "Aria"
+                st.session_state.page = "nickname" if not prev_nick else "app"
+                st.rerun()
+            else:
+                st.error("❌ Please fill in all three fields.")
+    st.stop()
+
+
+# ══════════════════════════════════════════════════════════
+# PAGE: NICKNAME  ← shown ONLY once after first profile
+# ══════════════════════════════════════════════════════════
+if st.session_state.page == "nickname":
+    _, col, _ = st.columns([1,1.5,1])
+    with col:
+        st.markdown("""
+        <div style="height:30px"></div>
+        <div style="text-align:center;font-size:3.5rem;">🤖</div>
         <div class="profile-title">One Last Thing!</div>
         <div class="profile-sub">Give your AI Career Mentor a name — make it yours!</div>
         <div style="height:10px"></div>
         <div style="text-align:center"><span class="step-badge">Step 3 of 3 — Personalize</span></div>
         <div style="height:20px"></div>
         """, unsafe_allow_html=True)
-
-        st.markdown("""
-        <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);
-                    border-radius:14px;padding:1.2rem;margin-bottom:1rem;text-align:center;">
-            <p style="color:#8892a4;font-size:0.88rem;margin:0 0 0.5rem;">
-                💡 Your AI mentor will use this name in every conversation.<br/>
-                You can change it anytime from Settings.
-            </p>
-            <p style="color:#5a6478;font-size:0.8rem;margin:0;">
-                Popular names: <b style="color:#00d4ff">Chitti</b> · <b style="color:#00d4ff">Jarvis</b> · 
+        st.markdown("""<div style="background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);
+            border-radius:14px;padding:1.2rem;margin-bottom:1rem;text-align:center;">
+            <p style="color:#8892a4;font-size:.88rem;margin:0 0 .5rem;">
+                💡 You can change this anytime from Settings.</p>
+            <p style="color:#5a6478;font-size:.8rem;margin:0;">
+                Popular: <b style="color:#00d4ff">Chitti</b> · <b style="color:#00d4ff">Jarvis</b> ·
                 <b style="color:#00d4ff">Nova</b> · <b style="color:#00d4ff">Aria</b> · <b style="color:#00d4ff">Max</b>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
+            </p></div>""", unsafe_allow_html=True)
         st.markdown("---")
-        with st.form("nickname_form", clear_on_submit=False):
-            nickname = st.text_input(
-                "🤖 Name your AI mentor",
-                placeholder="e.g. Chitti, Jarvis, Nova, Aria...",
-                max_chars=20,
-                label_visibility="collapsed"
-            )
-            col_a, col_b = st.columns(2)
-            with col_a:
-                set_name = st.form_submit_button("✨ Set Name & Enter App", use_container_width=True)
-            with col_b:
-                skip_name = st.form_submit_button("⏭️ Skip (Use 'Aria')", use_container_width=True)
-
-        if set_name:
-            final_nick = nickname.strip() if nickname.strip() else "Aria"
-            st.session_state.bot_nickname = final_nick
-            if st.session_state.user:
-                db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": final_nick})
+        with st.form("form_nick"):
+            nick    = st.text_input("Name your AI mentor", placeholder="e.g. Chitti, Jarvis…",
+                                    max_chars=20, label_visibility="collapsed")
+            ca, cb  = st.columns(2)
+            with ca: do_set  = st.form_submit_button("✨ Set Name & Enter App", use_container_width=True)
+            with cb: do_skip = st.form_submit_button("⏭️ Skip (Use 'Aria')",    use_container_width=True)
+        if do_set or do_skip:
+            final = nick.strip() if (do_set and nick.strip()) else "Aria"
+            st.session_state.bot_nick = final
+            uid = (st.session_state.user or {}).get("uid","")
+            if uid: db.collection("users").document(uid).update({"bot_nick": final})
             st.session_state.page = "app"
             st.rerun()
-        if skip_name:
-            st.session_state.bot_nickname = "Aria"
-            if st.session_state.user:
-                db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": "Aria"})
-            st.session_state.page = "app"
-            st.rerun()
-
     st.stop()
 
 
 # ══════════════════════════════════════════════════════════
-# AUTH GUARD — must be logged in to see below
+# AUTH GUARD — if somehow user is None, back to login
 # ══════════════════════════════════════════════════════════
-
 user = st.session_state.get("user") or {}
-
 if not user:
     st.session_state.clear()
     st.session_state.page = "login"
+    st.query_params.clear()
     st.rerun()
 
-name       = user.get("name", "")
-education  = user.get("education", "")
-job_target = user.get("job_target", "")
-email      = user.get("email", "")
+name       = user.get("name","")
+education  = user.get("education","")
+job_target = user.get("job_target","")
+uid_key    = user.get("uid", user.get("identifier",""))
 initials   = name[0].upper() if name else "?"
+bot_nick   = st.session_state.get("bot_nick","Aria")
 
-# ─── Sidebar ───────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════
+# SIDEBAR
+# ══════════════════════════════════════════════════════════
 with st.sidebar:
-
-    bot_nick = st.session_state.get("bot_nickname", "Aria")
-
     st.markdown(f"""
     <div class="welcome-card">
         <div style="width:52px;height:52px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
-                    border-radius:50%;display:flex;align-items:center;justify-content:center;
-                    font-size:1.5rem;margin:0 auto 0.75rem;">{initials}</div>
+            border-radius:50%;display:flex;align-items:center;justify-content:center;
+            font-size:1.5rem;margin:0 auto .75rem;">{initials}</div>
         <div class="welcome-name">👋 {name}</div>
         <div class="welcome-detail">🎓 {education}</div>
         <div class="welcome-detail">🎯 {job_target}</div>
-        <div class="welcome-email">✉️ {email}</div>
-        <div style="margin-top:0.5rem;color:#7b2ff7;font-size:0.78rem;font-weight:600;">
-            🤖 AI Mentor: <span style="color:#00d4ff">{bot_nick}</span>
-        </div>
+        <div class="welcome-email">✉️ {uid_key}</div>
+        <div style="margin-top:.5rem;color:#7b2ff7;font-size:.78rem;font-weight:600;">
+            🤖 AI Mentor: <span style="color:#00d4ff">{bot_nick}</span></div>
     </div>
     """, unsafe_allow_html=True)
-
     st.markdown("---")
 
     if 'skills' in st.session_state:
         st.markdown("### 📊 Resume Stats")
         st.metric("Skills Found", len(st.session_state['skills']))
         if 'resume_score' in st.session_state:
-            score_val = st.session_state['resume_score']
-            score_color = "🟢" if score_val >= 70 else "🟡" if score_val >= 50 else "🔴"
-            st.metric("Resume Score", f"{score_color} {score_val}/100")
+            sv = st.session_state['resume_score']
+            st.metric("Resume Score", f"{'🟢' if sv>=70 else '🟡' if sv>=50 else '🔴'} {sv}/100")
         if 'jobs' in st.session_state:
-            st.metric("Best Job Match", st.session_state['jobs'][0]['title'])
+            st.metric("Best Match", st.session_state['jobs'][0]['title'])
         st.markdown("---")
 
-    st.markdown("<div style='flex:1'></div>", unsafe_allow_html=True)
-
-    if st.button("⚙️ Settings", key="goto_settings_btn"):
+    if st.button("⚙️ Settings", key="goto_settings"):
         st.session_state.page = "settings"
         st.rerun()
 
     if st.button("🚪 Logout", key="logout_btn"):
-        st.session_state.clear()
+        tok = st.session_state.get("token","")
+        if tok: delete_token(tok)      # delete from Firebase
+        st.session_state.clear()       # wipe everything
+        st.query_params.clear()        # remove ?token= from URL
         st.session_state.page = "login"
         st.rerun()
 
@@ -886,162 +535,115 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════════
 # PAGE: SETTINGS
 # ══════════════════════════════════════════════════════════
-
 if st.session_state.page == "settings":
-
-    bot_nick = st.session_state.get("bot_nickname", "Aria")
-
     with st.sidebar:
-        st.markdown(f"""
-        <div class="welcome-card">
+        st.markdown(f"""<div class="welcome-card">
             <div style="width:44px;height:44px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
-                        border-radius:50%;display:flex;align-items:center;justify-content:center;
-                        font-size:1.2rem;margin:0 auto 0.6rem;">{initials}</div>
+                border-radius:50%;display:flex;align-items:center;justify-content:center;
+                font-size:1.2rem;margin:0 auto .6rem;">{initials}</div>
             <div class="welcome-name">{name}</div>
-            <div class="welcome-email">✉️ {email}</div>
-        </div>
-        """, unsafe_allow_html=True)
+            <div class="welcome-email">✉️ {uid_key}</div>
+        </div>""", unsafe_allow_html=True)
         st.markdown("---")
-        if st.button("← Back to App", key="settings_back"):
-            st.session_state.page = "app"
-            st.rerun()
-        if st.button("🚪 Logout", key="settings_logout"):
-            st.session_state.clear()
-            st.session_state.page = "login"
-            st.rerun()
+        if st.button("← Back to App", key="back_to_app"):
+            st.session_state.page = "app"; st.rerun()
+        if st.button("🚪 Logout", key="sett_logout"):
+            tok = st.session_state.get("token","")
+            if tok: delete_token(tok)
+            st.session_state.clear(); st.query_params.clear()
+            st.session_state.page = "login"; st.rerun()
 
     st.markdown('<div class="hero-title">⚙️ Settings</div>', unsafe_allow_html=True)
     st.markdown('<div class="hero-sub">Manage your account, preferences and personalization</div>', unsafe_allow_html=True)
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
     s1, s2 = st.columns(2)
-
     with s1:
-        st.markdown("""<div class="section-title">🤖 AI Mentor Name</div>""", unsafe_allow_html=True)
-        st.markdown(f"""
-        <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);
-                    border-radius:12px;padding:1rem;margin-bottom:0.8rem;">
-            <p style="color:#8892a4;font-size:0.85rem;margin:0 0 0.3rem;">Current AI Mentor Name</p>
+        st.markdown('<div class="section-title">🤖 AI Mentor Name</div>', unsafe_allow_html=True)
+        st.markdown(f"""<div style="background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);
+            border-radius:12px;padding:1rem;margin-bottom:.8rem;">
+            <p style="color:#8892a4;font-size:.85rem;margin:0 0 .3rem;">Current Name</p>
             <p style="color:#00d4ff;font-size:1.4rem;font-weight:800;margin:0;">🤖 {bot_nick}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        with st.form("nick_form", clear_on_submit=False):
-            new_nick = st.text_input("Change AI Mentor Name", placeholder="e.g. Chitti, Jarvis, Nova...", max_chars=20)
-            save_nick = st.form_submit_button("💾 Save Mentor Name", use_container_width=True)
-        st.caption("Popular: Chitti · Jarvis · Nova · Aria · Max · Zara · Atlas")
-        if save_nick:
-            if new_nick.strip():
-                st.session_state.bot_nickname = new_nick.strip()
-                db.collection("users").document(email).update({"bot_nickname": new_nick.strip()})
-                st.success(f"✅ AI Mentor renamed to **{new_nick.strip()}**!")
-                st.rerun()
-            else:
-                st.error("Please enter a name.")
+        </div>""", unsafe_allow_html=True)
+        with st.form("form_nick_s"):
+            nn     = st.text_input("New name", placeholder="e.g. Chitti, Jarvis…", max_chars=20)
+            sv_n   = st.form_submit_button("💾 Save Name", use_container_width=True)
+        st.caption("Popular: Chitti · Jarvis · Nova · Aria · Max")
+        if sv_n and nn.strip():
+            st.session_state.bot_nick = nn.strip()
+            db.collection("users").document(uid_key).update({"bot_nick": nn.strip()})
+            st.success(f"✅ Renamed to **{nn.strip()}**!")
+            st.rerun()
 
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-
-        st.markdown("""<div class="section-title">🌐 Language</div>""", unsafe_allow_html=True)
-        languages = ["English", "Hindi", "Tamil", "Telugu", "Kannada", "Malayalam",
-                     "Bengali", "Marathi", "Gujarati", "Spanish", "French", "German"]
-        curr_lang = st.session_state.get("language", "English")
-        lang_idx = languages.index(curr_lang) if curr_lang in languages else 0
-        with st.form("lang_form", clear_on_submit=False):
-            new_lang = st.selectbox("App Language", languages, index=lang_idx)
-            save_lang = st.form_submit_button("💾 Save Language", use_container_width=True)
-        if save_lang:
-            st.session_state.language = new_lang
-            st.success(f"✅ Language set to **{new_lang}**!")
-
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-
-        st.markdown("""<div class="section-title">🎨 Appearance</div>""", unsafe_allow_html=True)
-        st.radio("Theme", ["Dark", "Light"], index=0, key="setting_theme")
-        st.select_slider("Font Size", options=["Small", "Medium", "Large"], value="Medium", key="setting_font")
-        st.caption("💡 Theme & font changes apply on next reload.")
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="section-title">🌐 Language</div>', unsafe_allow_html=True)
+        langs = ["English","Hindi","Tamil","Telugu","Kannada","Malayalam","Bengali","Marathi","Gujarati","Spanish","French","German"]
+        cur   = st.session_state.get("language","English")
+        with st.form("form_lang_s"):
+            nl   = st.selectbox("Language", langs, index=langs.index(cur) if cur in langs else 0)
+            sv_l = st.form_submit_button("💾 Save Language", use_container_width=True)
+        if sv_l:
+            st.session_state.language = nl
+            db.collection("users").document(uid_key).update({"language": nl})
+            st.success(f"✅ Language set to **{nl}**!")
 
     with s2:
-        st.markdown("""<div class="section-title">👤 Account & Profile</div>""", unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="card">
-            <p style="color:#8892a4;font-size:0.82rem;margin:0 0 0.8rem;">Your saved profile details</p>
-            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">📧 Email:</b> {email}</p>
-            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">👤 Name:</b> {name}</p>
-            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">🎓 Education:</b> {education}</p>
-            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">🎯 Target Role:</b> {job_target}</p>
-            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">🤖 AI Mentor:</b> {bot_nick}</p>
-            <p style="color:white;margin:0.3rem 0;"><b style="color:#00d4ff">🌐 Language:</b> {st.session_state.get('language','English')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("✏️ Edit Profile Details", key="settings_edit_profile"):
-            st.session_state.page = "profile"
-            st.rerun()
+        st.markdown('<div class="section-title">👤 Account & Profile</div>', unsafe_allow_html=True)
+        st.markdown(f"""<div class="card">
+            <p style="color:#8892a4;font-size:.82rem;margin:0 0 .8rem;">Your saved profile</p>
+            <p style="color:white;margin:.3rem 0;"><b style="color:#00d4ff">📧 Login:</b> {uid_key}</p>
+            <p style="color:white;margin:.3rem 0;"><b style="color:#00d4ff">👤 Name:</b> {name}</p>
+            <p style="color:white;margin:.3rem 0;"><b style="color:#00d4ff">🎓 Education:</b> {education}</p>
+            <p style="color:white;margin:.3rem 0;"><b style="color:#00d4ff">🎯 Target:</b> {job_target}</p>
+            <p style="color:white;margin:.3rem 0;"><b style="color:#00d4ff">🤖 Mentor:</b> {bot_nick}</p>
+            <p style="color:white;margin:.3rem 0;"><b style="color:#00d4ff">🌐 Language:</b> {st.session_state.get('language','English')}</p>
+        </div>""", unsafe_allow_html=True)
+        if st.button("✏️ Edit Profile", key="edit_prof"):
+            st.session_state.page = "profile"; st.rerun()
 
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="section-title">🔔 Notifications</div>', unsafe_allow_html=True)
+        st.toggle("Email tips & updates",     value=False, key="notif1")
+        st.toggle("Score improvement alerts", value=True,  key="notif2")
+        st.toggle("Job match notifications",  value=True,  key="notif3")
 
-        st.markdown("""<div class="section-title">🔔 Notifications</div>""", unsafe_allow_html=True)
-        st.toggle("Email tips & career updates", value=False, key="setting_notif")
-        st.toggle("Show score improvement alerts", value=True, key="setting_alerts")
-        st.toggle("Job match notifications", value=True, key="setting_job_notif")
-
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-
-        st.markdown("""<div class="section-title">❓ Help & Support</div>""", unsafe_allow_html=True)
-        st.markdown("""
-        <div class="card">
-            <p style="color:#c0cce0;font-size:0.88rem;margin:0 0 0.5rem;"><b>📖 How to use:</b></p>
-            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">1. Upload resume (PDF / DOCX / TXT)</p>
-            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">2. Click Analyze My Resume</p>
-            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">3. Explore all 8 tabs for insights</p>
-            <p style="color:#8892a4;font-size:0.82rem;margin:0.2rem 0;">4. Chat with your AI mentor anytime!</p>
-            <p style="color:#c0cce0;font-size:0.88rem;margin:0.8rem 0 0.3rem;"><b>🔧 Contact:</b></p>
-            <p style="color:#00d4ff;font-size:0.82rem;margin:0;">support@airesume.pro</p>
-            <p style="color:#5a6478;font-size:0.75rem;margin:0.5rem 0 0;">Version 1.0.0 · Built with Streamlit + Groq AI</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-
-        st.markdown("""<div class="section-title" style="border-left-color:#ff4444;color:#ff4444">⚠️ Session</div>""", unsafe_allow_html=True)
-        if st.button("🚪 Logout & Clear Session", key="settings_logout_main"):
-            st.session_state.clear()
-            st.session_state.page = "login"
-            st.rerun()
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="section-title">❓ Help & Support</div>', unsafe_allow_html=True)
+        st.markdown("""<div class="card">
+            <p style="color:#c0cce0;font-size:.88rem;"><b>📖 How to use:</b></p>
+            <p style="color:#8892a4;font-size:.82rem;margin:.2rem 0;">1. Upload resume (PDF / DOCX / TXT)</p>
+            <p style="color:#8892a4;font-size:.82rem;margin:.2rem 0;">2. Click Analyze My Resume</p>
+            <p style="color:#8892a4;font-size:.82rem;margin:.2rem 0;">3. Explore all 8 tabs for insights</p>
+            <p style="color:#8892a4;font-size:.82rem;margin:.2rem 0;">4. Chat with your AI mentor anytime!</p>
+            <p style="color:#00d4ff;font-size:.82rem;margin:.8rem 0 0;">support@airesume.pro</p>
+            <p style="color:#5a6478;font-size:.75rem;margin:.4rem 0 0;">Version 2.0 · Streamlit + Groq AI</p>
+        </div>""", unsafe_allow_html=True)
 
     st.stop()
 
 
 # ══════════════════════════════════════════════════════════
-# PAGE: MAIN APP
+# MAIN APP
 # ══════════════════════════════════════════════════════════
-
 st.markdown('<div class="hero-title">🚀 AI Resume Analyzer Pro</div>', unsafe_allow_html=True)
 st.markdown('<div class="hero-sub">Upload your resume and get instant AI-powered career insights</div>', unsafe_allow_html=True)
-
-st.markdown(f"""
-<div class="welcome-banner">
+st.markdown(f"""<div class="welcome-banner">
     Hello, <span>{name}</span>! 👋 &nbsp;·&nbsp;
     🎯 Target: <span>{job_target}</span> &nbsp;·&nbsp;
     🎓 <span>{education}</span>
-</div>
-""", unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-    "📄 Upload & Analyze", "📊 Visual Charts", "💼 Smart Job Match",
-    "🔍 JD Matcher", "🎯 Interview Prep", "📚 Roadmap",
-    f"💬 Chat with {st.session_state.get('bot_nickname','Aria')}", "✍️ Resume Improver"
+tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
+    "📄 Upload & Analyze","📊 Visual Charts","💼 Smart Job Match",
+    "🔍 JD Matcher","🎯 Interview Prep","📚 Roadmap",
+    f"💬 Chat with {bot_nick}","✍️ Resume Improver"
 ])
 
-# ══════════════════════════════════════════════════════════
-# TAB 1 — Upload & Analyze
-# ══════════════════════════════════════════════════════════
+# ── Tab 1: Upload & Analyze ───────────────────────────────
 with tab1:
     st.markdown('<div class="section-title">📄 Upload Your Resume</div>', unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        uploaded_file = st.file_uploader("Choose resume file", type=["pdf","docx","txt"])
-    with col2:
-        pasted_text = st.text_area("Or paste resume text here:", height=150, placeholder="Paste your resume text here...")
+    c1,c2 = st.columns(2)
+    with c1: uploaded_file = st.file_uploader("Resume file", type=["pdf","docx","txt"])
+    with c2: pasted_text   = st.text_area("Or paste text:", height=150, placeholder="Paste resume text here...")
 
     if 'resume_score' in st.session_state:
         st.info(f"📊 Previous Score: **{st.session_state['resume_score']}/100** — Upload new resume to compare!")
@@ -1050,23 +652,19 @@ with tab1:
         resume_text = ""
         if uploaded_file:
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
-                tmp.write(uploaded_file.read())
-                tmp_path = tmp.name
+                tmp.write(uploaded_file.read()); tmp_path = tmp.name
             resume_text = extract_text(tmp_path)
             os.unlink(tmp_path)
         elif pasted_text.strip():
             resume_text = pasted_text
         else:
-            st.error("❌ Please upload a file or paste resume text!")
-            st.stop()
+            st.error("❌ Please upload a file or paste resume text!"); st.stop()
 
         if len(resume_text.strip()) < 50:
-            st.error("❌ Resume text too short. Please check your file.")
-            st.stop()
+            st.error("❌ Resume text too short. Check your file."); st.stop()
 
         if 'resume_score' in st.session_state:
             st.session_state['previous_score'] = st.session_state['resume_score']
-
         st.session_state['resume_text'] = resume_text
 
         with st.spinner("🔍 Extracting skills..."):
@@ -1074,7 +672,7 @@ with tab1:
             st.session_state['skills']     = skills
             st.session_state['categories'] = get_skill_categories(skills)
 
-        with st.spinner("🤖 AI analyzing resume (20-30 seconds)..."):
+        with st.spinner("🤖 AI analyzing resume (20–30 sec)..."):
             analysis = analyze_resume(resume_text)
             st.session_state['analysis'] = analysis
 
@@ -1083,20 +681,18 @@ with tab1:
             st.session_state['jobs'] = jobs
 
         try:
-            score_line = [l for l in analysis.split('\n') if 'SCORE:' in l][0]
-            score = int(''.join(filter(str.isdigit, score_line)))
-            score = min(score, 100)
-        except:
-            score = 70
+            score = min(int(''.join(filter(str.isdigit,
+                [l for l in analysis.split('\n') if 'SCORE:' in l][0]))), 100)
+        except: score = 70
         st.session_state['resume_score'] = score
 
-        db.collection("resume_analysis").add({
-            "user_email": email, "user_name": name, "score": score,
-            "skills": skills,
-            "top_job_match": jobs[0]["title"] if jobs else "None",
-            "match_score": jobs[0]["match_score"] if jobs else 0,
-            "timestamp": datetime.datetime.now().isoformat()
-        })
+        try:
+            db.collection("resume_analysis").add({
+                "user": uid_key, "name": name, "score": score, "skills": skills,
+                "top_job": jobs[0]["title"] if jobs else "None",
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+        except: pass
 
         if score >= 75:
             st.markdown("""<div class="banner-excellent">
@@ -1104,7 +700,7 @@ with tab1:
                 &nbsp; EXCELLENT RESUME! You are Job Ready! &nbsp;
                 <span class="anim-bounce" style="font-size:2rem">🎉</span>
             </div>""", unsafe_allow_html=True)
-            st.success(f"✅ Amazing! Your resume scored {score}/100 — Start applying NOW!")
+            st.success(f"✅ Your resume scored {score}/100 — Start applying NOW!")
         elif score >= 50:
             st.markdown("""<div class="banner-medium">
                 <span class="anim-pulse" style="font-size:2rem">👍</span>
@@ -1115,11 +711,11 @@ with tab1:
         else:
             st.markdown("""
             <div style="text-align:center;padding:1.5rem 0;height:130px;position:relative;overflow:hidden;">
-                <span class="anim-explode" style="font-size:4.5rem;position:absolute;left:8%;top:5%;">💥</span>
-                <span class="anim-fly1"    style="font-size:3.5rem;position:absolute;left:18%;top:25%;">🎈</span>
-                <span class="anim-fly2"    style="font-size:3.5rem;position:absolute;left:38%;top:15%;">🎈</span>
-                <span class="anim-fly3"    style="font-size:3.5rem;position:absolute;left:58%;top:25%;">🎈</span>
-                <span class="anim-explode" style="font-size:4rem;position:absolute;left:72%;top:5%;animation-delay:0.2s;">💥</span>
+                <span class="anim-explode" style="font-size:4.5rem;position:absolute;left:8%;top:5%">💥</span>
+                <span class="anim-fly1"    style="font-size:3.5rem;position:absolute;left:18%;top:25%">🎈</span>
+                <span class="anim-fly2"    style="font-size:3.5rem;position:absolute;left:38%;top:15%">🎈</span>
+                <span class="anim-fly3"    style="font-size:3.5rem;position:absolute;left:58%;top:25%">🎈</span>
+                <span class="anim-explode" style="font-size:4rem;position:absolute;left:72%;top:5%;animation-delay:.2s">💥</span>
             </div>
             <div class="banner-poor">
                 <span class="anim-shake" style="font-size:2rem">⚠️</span>
@@ -1133,262 +729,138 @@ with tab1:
         skills     = st.session_state['skills']
         categories = st.session_state['categories']
         score      = st.session_state['resume_score']
-
         st.markdown("---")
 
         if 'previous_score' in st.session_state:
-            prev = st.session_state['previous_score']
-            diff = score - prev
-            emoji = "📈" if diff > 0 else "📉" if diff < 0 else "➡️"
-            color = "green" if diff > 0 else "red" if diff < 0 else "gray"
+            prev = st.session_state['previous_score']; diff = score-prev
+            color = "green" if diff>0 else "red" if diff<0 else "gray"
             st.markdown(f"""<div class="card" style="text-align:center">
-                <h3>Score Comparison {emoji}</h3>
-                <span style="font-size:2rem">Previous: <b>{prev}</b></span> &nbsp;→&nbsp;
-                <span style="font-size:2rem">New: <b style="color:{color}">{score}</b></span>
-                &nbsp;<span style="color:{color}">({'+' if diff>0 else ''}{diff} pts)</span>
+                <h3>Score Comparison {'📈' if diff>0 else '📉' if diff<0 else '➡️'}</h3>
+                Previous: <b>{prev}</b> → New: <b style="color:{color}">{score}</b>
+                <span style="color:{color}">({'+' if diff>0 else ''}{diff} pts)</span>
             </div>""", unsafe_allow_html=True)
 
-        col1, col2, col3, col4 = st.columns(4)
-        c = "#00ff88" if score>=70 else "#ffbb00" if score>=50 else "#ff4444"
-        with col1:
-            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{c}">{score}</div><div style="color:#5a6478">Resume Score</div></div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#00d4ff">{len(skills)}</div><div style="color:#5a6478">Skills Found</div></div>', unsafe_allow_html=True)
-        with col3:
-            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#7b2ff7">{len(categories)}</div><div style="color:#5a6478">Skill Categories</div></div>', unsafe_allow_html=True)
-        with col4:
-            top_match = st.session_state['jobs'][0]['match_score'] if st.session_state.get('jobs') else 0
-            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#ff6b6b">{top_match}%</div><div style="color:#5a6478">Top Job Match</div></div>', unsafe_allow_html=True)
+        cc = "#00ff88" if score>=70 else "#ffbb00" if score>=50 else "#ff4444"
+        c1,c2,c3,c4 = st.columns(4)
+        with c1: st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc}">{score}</div><div style="color:#5a6478">Resume Score</div></div>',unsafe_allow_html=True)
+        with c2: st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#00d4ff">{len(skills)}</div><div style="color:#5a6478">Skills Found</div></div>',unsafe_allow_html=True)
+        with c3: st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#7b2ff7">{len(categories)}</div><div style="color:#5a6478">Categories</div></div>',unsafe_allow_html=True)
+        with c4:
+            tm = st.session_state['jobs'][0]['match_score'] if st.session_state.get('jobs') else 0
+            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#ff6b6b">{tm}%</div><div style="color:#5a6478">Top Job Match</div></div>',unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.progress(score / 100)
-
+        st.progress(score/100)
         st.markdown('<div class="section-title">🤖 Full AI Analysis</div>', unsafe_allow_html=True)
-        st.markdown(render_ai_analysis(analysis), unsafe_allow_html=True)
+        st.markdown(f'<div class="card">{analysis}</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="section-title">🧠 Skills Detected</div>', unsafe_allow_html=True)
         if categories:
             cols = st.columns(3)
-            for i, (cat, cat_skills) in enumerate(categories.items()):
-                with cols[i % 3]:
+            for i,(cat,cs) in enumerate(categories.items()):
+                with cols[i%3]:
                     st.markdown(f"**{cat}**")
-                    for s in cat_skills:
-                        st.markdown(f'<span class="skill-tag">{s}</span>', unsafe_allow_html=True)
+                    for s in cs: st.markdown(f'<span class="skill-tag">{s}</span>', unsafe_allow_html=True)
         else:
             st.warning("No skills detected.")
 
         st.markdown("---")
         st.markdown('<div class="section-title">📥 Download Report</div>', unsafe_allow_html=True)
-        candidate_name = st.text_input("Your name for the report:", value=name)
+        cname = st.text_input("Your name for the report:", value=name)
         if st.button("📄 Generate & Download PDF Report"):
-            if candidate_name:
+            if cname:
                 with st.spinner("Generating PDF..."):
-                    questions = st.session_state.get('questions', '')
-                    pdf_path = generate_pdf_report(candidate_name, score, skills, analysis, st.session_state['jobs'], questions)
-                with open(pdf_path, "rb") as f:
+                    pdf_path = generate_pdf_report(cname, score, skills, analysis,
+                                                   st.session_state['jobs'],
+                                                   st.session_state.get('questions',''))
+                with open(pdf_path,"rb") as f:
                     st.download_button("⬇️ Download PDF Report", data=f,
-                        file_name=f"resume_{candidate_name.replace(' ','_')}.pdf", mime="application/pdf")
+                        file_name=f"resume_{cname.replace(' ','_')}.pdf", mime="application/pdf")
             else:
                 st.error("Please enter your name!")
 
-# ══════════════════════════════════════════════════════════
-# TAB 2 — Visual Charts
-# ══════════════════════════════════════════════════════════
+# ── Tab 2: Visual Charts ──────────────────────────────────
 with tab2:
     st.markdown('<div class="section-title">📊 Visual Analytics</div>', unsafe_allow_html=True)
     if 'skills' not in st.session_state:
-        st.markdown("""
-        <div class="ai-summary-box">
-            📌 <b>How to use this tab:</b> First go to <b>Upload & Analyze</b>, upload your resume,
-            and click <b>Analyze My Resume</b>. Then come back here to see your visual analytics.
-        </div>""", unsafe_allow_html=True)
+        st.info("👆 Please analyze your resume first!")
     else:
         score      = st.session_state['resume_score']
         skills     = st.session_state['skills']
         categories = st.session_state['categories']
-        jobs       = st.session_state.get('jobs', [])
-        analysis   = st.session_state.get('analysis', '')
+        jobs       = st.session_state.get('jobs',[])
 
-        breakdown = {}
-        breakdown_labels = {
-            "Contact": "Contact & Info", "Summary": "Summary",
-            "Experience": "Experience",  "Skills": "Skills",
-            "Education": "Education",    "Projects": "Projects",
-            "Certifications": "Certifications", "Formatting": "Formatting"
-        }
-        import re
-        for key, label in breakdown_labels.items():
-            match = re.search(rf"{key}.*?(\d+)/(\d+)", analysis)
-            if match:
-                breakdown[label] = {"got": int(match.group(1)), "max": int(match.group(2))}
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("#### 🎯 Resume Score")
-            st.markdown('<div class="chart-desc">Your overall resume quality score out of 100. Green = job-ready (70+), Yellow = needs work (50–70), Red = urgent improvements needed.</div>', unsafe_allow_html=True)
-            color = "#00ff88" if score >= 70 else "#ffbb00" if score >= 50 else "#ff4444"
-            label_text = "Job Ready! 🚀" if score >= 70 else "Needs Work 📈" if score >= 50 else "Urgent Fix ⚠️"
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number", value=score,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': label_text, 'font': {'color': color, 'family': 'Sora', 'size': 14}},
-                number={'font': {'color': color, 'size': 48, 'family': 'Sora'}},
-                gauge={
-                    'axis': {'range': [0, 100], 'tickcolor': "#5a6478", 'tickfont': {'color': '#5a6478'}},
-                    'bar': {'color': color, 'thickness': 0.28},
-                    'bgcolor': "rgba(0,0,0,0)", 'borderwidth': 0,
-                    'steps': [
-                        {'range': [0, 50],   'color': 'rgba(255,68,68,0.12)'},
-                        {'range': [50, 70],  'color': 'rgba(255,187,0,0.12)'},
-                        {'range': [70, 100], 'color': 'rgba(0,255,136,0.12)'}
-                    ],
-                    'threshold': {'line': {'color': color, 'width': 3}, 'thickness': 0.85, 'value': score}
-                }
+        c1,c2 = st.columns(2)
+        with c1:
+            st.markdown("#### 🎯 Resume Score Gauge")
+            color = "#00ff88" if score>=70 else "#ffbb00" if score>=50 else "#ff4444"
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",value=score,domain={'x':[0,1],'y':[0,1]},
+                title={'text':"Resume Score",'font':{'color':'white'}},
+                number={'font':{'color':color}},
+                gauge={'axis':{'range':[0,100],'tickcolor':'white'},'bar':{'color':color},
+                       'bgcolor':'rgba(0,0,0,0)',
+                       'steps':[{'range':[0,50],'color':'rgba(255,68,68,.2)'},
+                                 {'range':[50,70],'color':'rgba(255,187,0,.2)'},
+                                 {'range':[70,100],'color':'rgba(0,255,136,.2)'}],
+                       'threshold':{'line':{'color':'#7b2ff7','width':4},'thickness':.75,'value':70}}
             ))
-            fig_gauge.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white'}, height=280, margin=dict(t=40, b=10, l=20, r=20))
-            st.plotly_chart(fig_gauge, use_container_width=True)
+            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)',font={'color':'white'},height=300)
+            st.plotly_chart(fig, use_container_width=True)
 
-        with col2:
+        with c2:
             st.markdown("#### 🧠 Skills by Category")
-            st.markdown('<div class="chart-desc">Breakdown of your skills by domain. Hover over each slice to see how many skills you have per category.</div>', unsafe_allow_html=True)
             if categories:
-                cat_names  = list(categories.keys())
-                cat_counts = [len(v) for v in categories.values()]
-                fig_pie = go.Figure(go.Pie(
-                    labels=cat_names, values=cat_counts, hole=0.5,
-                    textinfo='label+value',
-                    hovertemplate='<b>%{label}</b><br>%{value} skills<br>%{percent}<extra></extra>',
-                    marker=dict(colors=['#00d4ff','#7b2ff7','#00ff88','#ffbb00','#ff6b6b','#ff8c00','#a78bfa','#34d399'],
-                                line=dict(color='#080c14', width=2))
-                ))
-                fig_pie.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white', 'family': 'DM Sans'},
-                    height=280, margin=dict(t=10, b=10, l=10, r=10),
-                    legend=dict(font=dict(size=11), bgcolor='rgba(0,0,0,0)')
-                )
-                st.plotly_chart(fig_pie, use_container_width=True)
-            else:
-                st.info("No skill categories detected yet.")
-
-        if breakdown:
-            st.markdown("#### 📋 Score Breakdown by Section")
-            st.markdown('<div class="chart-desc">How you scored in each section of your resume. Focus on the shortest bars first.</div>', unsafe_allow_html=True)
-            bd_labels = list(breakdown.keys())
-            bd_got    = [breakdown[k]["got"] for k in bd_labels]
-            bd_max    = [breakdown[k]["max"] for k in bd_labels]
-            bd_pct    = [round(g/m*100) if m > 0 else 0 for g, m in zip(bd_got, bd_max)]
-            bd_colors = ['#00ff88' if p >= 70 else '#ffbb00' if p >= 40 else '#ff4444' for p in bd_pct]
-            fig_bd = go.Figure()
-            fig_bd.add_trace(go.Bar(
-                name='Your Score', x=bd_labels, y=bd_got, marker_color=bd_colors,
-                text=[f"{g}/{m}" for g, m in zip(bd_got, bd_max)], textposition='outside',
-                hovertemplate='<b>%{x}</b><br>Got: %{y}<br>Max: %{customdata}<extra></extra>',
-                customdata=bd_max
-            ))
-            fig_bd.add_trace(go.Bar(
-                name='Remaining', x=bd_labels, y=[m - g for g, m in zip(bd_got, bd_max)],
-                marker_color='rgba(255,255,255,0.05)', hoverinfo='skip'
-            ))
-            fig_bd.update_layout(
-                barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font={'color': 'white', 'family': 'DM Sans'},
-                xaxis={'tickfont': {'size': 11}}, yaxis={'visible': False},
-                height=320, margin=dict(t=30, b=10, l=10, r=10),
-                legend=dict(bgcolor='rgba(0,0,0,0)', font=dict(size=10)), showlegend=True
-            )
-            st.plotly_chart(fig_bd, use_container_width=True)
+                fig2 = px.pie(names=list(categories.keys()),
+                              values=[len(v) for v in categories.values()],
+                              color_discrete_sequence=px.colors.sequential.Plasma, hole=0.4)
+                fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)',font={'color':'white'},height=300)
+                st.plotly_chart(fig2, use_container_width=True)
 
         if jobs:
             st.markdown("#### 💼 Job Match Scores")
-            st.markdown('<div class="chart-desc">How well your resume matches different job roles. Green bars (70%+) are your best-fit jobs.</div>', unsafe_allow_html=True)
-            jt = [j['title'] for j in jobs[:8]]
-            js = [j.get('match_score') or j.get('similarity_score', 0) for j in jobs[:8]]
-            cb = ['#00ff88' if s >= 70 else '#ffbb00' if s >= 40 else '#ff4444' for s in js]
-            fig_bar = go.Figure(go.Bar(
-                x=js, y=jt, orientation='h', marker_color=cb,
-                text=[f"{s}%" for s in js], textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Match: %{x}%<extra></extra>'
-            ))
-            fig_bar.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font={'color': 'white', 'family': 'DM Sans'},
-                xaxis={'range': [0, 115], 'showgrid': False, 'ticksuffix': '%'},
-                yaxis={'tickfont': {'size': 11}},
-                height=380, margin=dict(t=10, b=10, l=10, r=60)
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            jt=[j['title'] for j in jobs[:8]]; js=[j['match_score'] for j in jobs[:8]]
+            fig3=go.Figure(go.Bar(x=js,y=jt,orientation='h',
+                marker_color=['#00ff88' if s>=70 else '#ffbb00' if s>=40 else '#ff4444' for s in js],
+                text=[f"{s}%" for s in js],textposition='outside'))
+            fig3.update_layout(paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
+                font={'color':'white'},xaxis={'range':[0,115]},height=400)
+            st.plotly_chart(fig3, use_container_width=True)
 
-        if categories and len(categories) >= 3:
-            st.markdown("#### 🕸️ Skill Coverage Radar")
-            st.markdown('<div class="chart-desc">A radar chart showing skill coverage across categories. A larger shape means broader coverage.</div>', unsafe_allow_html=True)
-            rc = list(categories.keys())
-            rv = [len(v) for v in categories.values()]
-            rc_closed = rc + [rc[0]]
-            rv_closed = rv + [rv[0]]
-            fig_r = go.Figure(go.Scatterpolar(
-                r=rv_closed, theta=rc_closed, fill='toself',
-                fillcolor='rgba(0,212,255,0.10)',
-                line=dict(color='#00d4ff', width=2),
-                marker=dict(color='#7b2ff7', size=6),
-                hovertemplate='<b>%{theta}</b><br>%{r} skills<extra></extra>'
-            ))
-            fig_r.update_layout(
-                polar=dict(
-                    bgcolor='rgba(0,0,0,0)',
-                    radialaxis=dict(visible=True, gridcolor='rgba(255,255,255,0.08)', color='#5a6478', tickfont=dict(size=9)),
-                    angularaxis=dict(gridcolor='rgba(255,255,255,0.08)', color='#8892a4', tickfont=dict(size=11))
-                ),
-                paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white', 'family': 'DM Sans'},
-                height=380, margin=dict(t=20, b=20, l=20, r=20)
-            )
-            st.plotly_chart(fig_r, use_container_width=True)
+        if categories and len(categories)>=3:
+            st.markdown("#### 🕸️ Skill Radar")
+            rc=list(categories.keys()); rv=[len(v) for v in categories.values()]
+            fig4=go.Figure(go.Scatterpolar(r=rv+[rv[0]],theta=rc+[rc[0]],fill='toself',
+                fillcolor='rgba(0,212,255,.1)',line_color='#00d4ff'))
+            fig4.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)',
+                radialaxis=dict(visible=True,gridcolor='rgba(255,255,255,.08)',color='white'),
+                angularaxis=dict(gridcolor='rgba(255,255,255,.08)',color='white')),
+                paper_bgcolor='rgba(0,0,0,0)',font={'color':'white'},height=400)
+            st.plotly_chart(fig4, use_container_width=True)
 
         if 'previous_score' in st.session_state:
-            prev = st.session_state['previous_score']
-            st.markdown("#### 📈 Score Improvement")
-            st.markdown('<div class="chart-desc">Comparison between your previous and current resume score.</div>', unsafe_allow_html=True)
-            diff = score - prev
-            c_prev = '#ff6b6b' if prev < score else '#00ff88'
-            c_curr = '#00ff88' if score >= prev else '#ff4444'
-            fig_c = go.Figure(go.Bar(
-                x=['Previous Resume', 'Current Resume'], y=[prev, score],
-                marker_color=[c_prev, c_curr],
-                text=[f"{prev}/100", f"{score}/100"], textposition='outside',
-                hovertemplate='%{x}: %{y}/100<extra></extra>'
-            ))
-            fig_c.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font={'color': 'white', 'family': 'DM Sans'},
-                yaxis={'range': [0, 115], 'showgrid': False},
-                height=280, margin=dict(t=30, b=10, l=10, r=10)
-            )
-            st.plotly_chart(fig_c, use_container_width=True)
-            diff_color = "#00ff88" if diff > 0 else "#ff4444" if diff < 0 else "#ffbb00"
-            diff_msg   = f"📈 +{diff} points improvement!" if diff > 0 else f"📉 {diff} points — try the Resume Improver tab!" if diff < 0 else "➡️ Same score as before."
-            st.markdown(f'<div class="ai-summary-box" style="border-color:{diff_color}40;color:{diff_color};font-weight:600;">{diff_msg}</div>', unsafe_allow_html=True)
+            prev=st.session_state['previous_score']
+            fig5=go.Figure(go.Bar(x=['Previous','Current'],y=[prev,score],
+                marker_color=['#ff6b6b','#00ff88'],
+                text=[str(prev),str(score)],textposition='outside'))
+            fig5.update_layout(paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
+                font={'color':'white'},yaxis={'range':[0,115]},height=300)
+            st.plotly_chart(fig5, use_container_width=True)
 
-# ══════════════════════════════════════════════════════════
-# TAB 3 — Smart Job Match
-# ══════════════════════════════════════════════════════════
+# ── Tab 3: Smart Job Match ────────────────────────────────
 with tab3:
     st.markdown('<div class="section-title">💼 Smart Job Matching</div>', unsafe_allow_html=True)
     st.markdown("Uses **AI Vector Search** to find semantically similar jobs!")
-
     if 'resume_text' not in st.session_state:
         st.info("👆 Please analyze your resume first!")
     else:
         if st.button("🔍 Run Smart Job Match", key="chroma_btn"):
-            with st.spinner("🧠 AI searching best jobs for you..."):
-                smart_jobs = smart_job_match(st.session_state['resume_text'])
-                st.session_state['smart_jobs'] = smart_jobs
-
+            with st.spinner("🧠 AI searching best jobs..."):
+                st.session_state['smart_jobs'] = smart_job_match(st.session_state['resume_text'])
         if 'smart_jobs' in st.session_state:
-            for i, job in enumerate(st.session_state['smart_jobs']):
-                sj = job['similarity_score']
-                em = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else "⭐"
+            for i,job in enumerate(st.session_state['smart_jobs']):
+                sj=job['similarity_score']; em="🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else "⭐"
                 with st.expander(f"{em} {job['title']} — {sj}% Match"):
-                    c1, c2 = st.columns(2)
+                    c1,c2=st.columns(2)
                     with c1:
                         st.markdown(f"**Score:** {sj}%"); st.progress(sj/100)
                         st.markdown(f"**💰 Salary:** {job['salary']}")
@@ -1399,317 +871,161 @@ with tab3:
                             has = s.lower() in [sk.lower() for sk in st.session_state['skills']]
                             st.markdown(f"{'✅' if has else '❌'} {s}")
 
-# ══════════════════════════════════════════════════════════
-# TAB 4 — JD Matcher
-# ══════════════════════════════════════════════════════════
+# ── Tab 4: JD Matcher ─────────────────────────────────────
 with tab4:
     st.markdown('<div class="section-title">🔍 Resume vs JD Matcher</div>', unsafe_allow_html=True)
     if 'resume_text' not in st.session_state:
         st.info("👆 Please analyze your resume first!")
     else:
-        with st.form("jd_form", clear_on_submit=False):
-            jd_text = st.text_area("Paste Job Description here:", height=250, placeholder="Paste job description...")
-            jd_submitted = st.form_submit_button("🔍 Match Resume with JD", use_container_width=True)
-        if jd_submitted:
+        with st.form("form_jd"):
+            jd_text = st.text_area("Paste Job Description:", height=250, placeholder="Paste job description...")
+            jd_go   = st.form_submit_button("🔍 Match Resume with JD", use_container_width=True)
+        if jd_go:
             if jd_text.strip():
                 with st.spinner("🤖 AI comparing..."):
-                    prompt = f"""You are a senior ATS expert and technical recruiter with 15+ years experience.
-
-Perform a DEEP, ACCURATE analysis comparing the resume against the job description.
-
-=== SCORING METHODOLOGY ===
-MATCH SCORE (0-100): Based on % of JD requirements covered by resume
-ATS SCORE (0-100): Based on keyword density and formatting
-
-=== RESPOND IN EXACTLY THIS FORMAT ===
-
-MATCH SCORE: [0-100]
-ATS SCORE: [0-100]
-
-MATCHED KEYWORDS:
-- [keyword]
-
-MISSING KEYWORDS:
-- [keyword]
-
-EXPERIENCE_FIT: [Junior/Mid/Senior] level resume vs [Junior/Mid/Senior] level JD
-OVERALL_FIT: [Poor/Fair/Good/Excellent]
-
-RECOMMENDATION:
-[3-4 specific sentences]
-
-TAILORING_TIPS:
-- [Tip 1]
-- [Tip 2]
-- [Tip 3]
-- [Tip 4]
-- [Tip 5]
-
-INTERVIEW_PROBABILITY: [Low/Medium/High] — [1 sentence reason]
-
-Resume:
-{st.session_state['resume_text']}
-
-Job Description:
-{jd_text}"""
                     resp = client.chat.completions.create(
                         model="llama-3.3-70b-versatile",
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.1
-                    )
+                        messages=[{"role":"user","content":f"""You are a senior ATS expert.
+MATCH SCORE: [0-100]
+ATS SCORE: [0-100]
+MATCHED KEYWORDS:\n- [keyword]\nMISSING KEYWORDS:\n- [keyword]
+EXPERIENCE_FIT: [level]
+OVERALL_FIT: [Poor/Fair/Good/Excellent]
+RECOMMENDATION:\n[3-4 sentences]
+TAILORING_TIPS:\n- [tip 1]\n- [tip 2]\n- [tip 3]\n- [tip 4]\n- [tip 5]
+INTERVIEW_PROBABILITY: [Low/Medium/High] — [reason]
+
+Resume:\n{st.session_state['resume_text']}\n\nJob Description:\n{jd_text}"""}],
+                        temperature=0.1)
                     st.session_state['jd_result'] = resp.choices[0].message.content
-            else:
-                st.error("Please paste a job description!")
+            else: st.error("Please paste a job description!")
 
         if 'jd_result' in st.session_state:
-            result = st.session_state['jd_result']
-            try:
-                ms = min(int(''.join(filter(str.isdigit,[l for l in result.split('\n') if 'MATCH SCORE:' in l][0]))),100)
-            except: ms = 60
-            try:
-                ats = min(int(''.join(filter(str.isdigit,[l for l in result.split('\n') if 'ATS SCORE:' in l][0]))),100)
-            except: ats = 65
-            c1, c2 = st.columns(2)
+            result=st.session_state['jd_result']
+            try: ms  = min(int(''.join(filter(str.isdigit,[l for l in result.split('\n') if 'MATCH SCORE:' in l][0]))),100)
+            except: ms=60
+            try: ats = min(int(''.join(filter(str.isdigit,[l for l in result.split('\n') if 'ATS SCORE:'   in l][0]))),100)
+            except: ats=65
+            c1,c2=st.columns(2)
             with c1:
-                cc = "#00ff88" if ms>=70 else "#ffbb00" if ms>=50 else "#ff4444"
-                st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc}">{ms}%</div><div style="color:#5a6478">JD Match</div></div>', unsafe_allow_html=True)
+                cc="#00ff88" if ms>=70 else "#ffbb00" if ms>=50 else "#ff4444"
+                st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc}">{ms}%</div><div style="color:#5a6478">JD Match</div></div>',unsafe_allow_html=True)
                 st.progress(ms/100)
             with c2:
-                cc2 = "#00ff88" if ats>=70 else "#ffbb00" if ats>=50 else "#ff4444"
-                st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc2}">{ats}%</div><div style="color:#5a6478">ATS Score</div></div>', unsafe_allow_html=True)
+                cc2="#00ff88" if ats>=70 else "#ffbb00" if ats>=50 else "#ff4444"
+                st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc2}">{ats}%</div><div style="color:#5a6478">ATS Score</div></div>',unsafe_allow_html=True)
                 st.progress(ats/100)
-            st.markdown(render_ai_analysis(result), unsafe_allow_html=True)
+            st.markdown(f'<div class="card">{result}</div>',unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════
-# TAB 5 — Interview Prep
-# ══════════════════════════════════════════════════════════
+# ── Tab 5: Interview Prep ─────────────────────────────────
 with tab5:
     st.markdown('<div class="section-title">🎯 Interview Question Generator</div>', unsafe_allow_html=True)
     if 'skills' not in st.session_state:
         st.info("👆 Please analyze your resume first!")
     else:
-        c1, c2 = st.columns(2)
+        c1,c2=st.columns(2)
         with c1:
-            jtl = [j['title'] for j in st.session_state.get('jobs',[])] or ["Data Scientist"]
-            sel_job = st.selectbox("Select Target Job", jtl)
+            jtl=[j['title'] for j in st.session_state.get('jobs',[])] or ["Data Scientist"]
+            sel_job=st.selectbox("Target Job",jtl)
         with c2:
-            diff = st.selectbox("Difficulty", ["Entry Level","Mid Level","Senior Level"])
-        if st.button("🎯 Generate Questions", key="interview_btn"):
+            diff=st.selectbox("Difficulty",["Entry Level","Mid Level","Senior Level"])
+        if st.button("🎯 Generate Questions",key="interview_btn"):
             with st.spinner("🤖 Generating..."):
-                qs = generate_interview_questions(st.session_state['skills'], f"{diff} {sel_job}")
-                st.session_state['questions']    = qs
-                st.session_state['selected_job'] = sel_job
+                qs=generate_interview_questions(st.session_state['skills'],f"{diff} {sel_job}")
+                st.session_state['questions']=qs; st.session_state['selected_job']=sel_job
         if 'questions' in st.session_state:
-            raw_q = st.session_state["questions"]
-            st.markdown(f'''
-            <div style="margin-bottom:0.5rem;">
-                <span style="font-family:Sora,sans-serif;font-size:1.1rem;font-weight:700;color:white;">
-                    📝 Interview Questions
-                </span>
-                <span style="font-size:0.82rem;color:#5a6478;margin-left:0.5rem;">— {st.session_state["selected_job"]}</span>
-            </div>''', unsafe_allow_html=True)
+            st.markdown(f"### 📝 {st.session_state['selected_job']} Questions")
+            st.markdown(f'<div class="card">{st.session_state["questions"]}</div>',unsafe_allow_html=True)
 
-            def render_interview_questions(raw):
-                import re
-                html = '<div class="ai-block">'
-                lines = raw.split("\n")
-                q_num = 0
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if any(h in line.upper() for h in ["TECHNICAL QUESTIONS", "BEHAVIORAL QUESTIONS", "SITUATIONAL", "CASE QUESTIONS"]):
-                        icon = "⚙️" if "TECHNICAL" in line.upper() else "🧠" if "BEHAVIORAL" in line.upper() else "💡"
-                        clean = re.sub(r"[:#\*]+", "", line).strip()
-                        html += f'<div class="ai-section-heading">{icon} {clean}</div>'
-                    elif re.match(r"^\d+\.", line):
-                        q_num += 1
-                        parts = line.split("|")
-                        q_text = re.sub(r"^\d+\.\s*", "", parts[0]).strip()
-                        diff_label = ""
-                        if len(parts) > 1:
-                            diff_match = re.search(r"(Easy|Medium|Hard)", parts[1], re.I)
-                            if diff_match:
-                                d = diff_match.group(1).capitalize()
-                                diff_class = f"diff-{d.lower()}"
-                                diff_label = f'<span class="ai-num-diff {diff_class}">{d}</span>'
-                        html += f'''
-                        <div class="ai-numbered">
-                            <div class="ai-num-badge">{q_num}</div>
-                            <div class="ai-num-content">
-                                <div class="ai-num-title">{q_text}</div>
-                                {diff_label}
-                            </div>
-                        </div>'''
-                    elif line.startswith("→"):
-                        hint_text = line.replace("→", "").replace("Good answer covers:", "").strip()
-                        html += f'<div class="ai-num-hint" style="margin-left:2.2rem;margin-top:-0.3rem;margin-bottom:0.4rem;color:#5a7a96;font-size:0.78rem;">💡 {hint_text}</div>'
-                    elif set(line) <= set("=-─━"):
-                        html += "<hr style='border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0.5rem 0'>"
-                    else:
-                        html += f'<div style="color:#8892a4;font-size:0.82rem;padding:0.2rem 0.6rem;">{line}</div>'
-                html += "</div>"
-                return html
-
-            st.markdown(render_interview_questions(raw_q), unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════
-# TAB 6 — Roadmap
-# ══════════════════════════════════════════════════════════
+# ── Tab 6: Roadmap ────────────────────────────────────────
 with tab6:
     st.markdown('<div class="section-title">📚 AI Learning Roadmap</div>', unsafe_allow_html=True)
     if 'roadmap' in st.session_state:
-        st.markdown(render_ai_analysis(st.session_state["roadmap"]), unsafe_allow_html=True)
-    else:
-        st.info("Generate a custom roadmap below!")
-
-    with st.form("roadmap_form", clear_on_submit=False):
-        c1, c2 = st.columns(2)
+        st.markdown(f'<div class="card">{st.session_state["roadmap"]}</div>',unsafe_allow_html=True)
+    else: st.info("Generate a custom roadmap below!")
+    with st.form("form_roadmap"):
+        c1,c2=st.columns(2)
         with c1: tj   = st.text_input("Target Job Title", value=user.get('job_target',''))
-        with c2: miss = st.text_input("Skills to Learn", placeholder="e.g. Deep Learning, SQL")
-        gen_roadmap = st.form_submit_button("📚 Generate Roadmap", use_container_width=True)
-    if gen_roadmap:
+        with c2: miss = st.text_input("Skills to Learn",  placeholder="e.g. Deep Learning, SQL")
+        gen=st.form_submit_button("📚 Generate Roadmap", use_container_width=True)
+    if gen:
         if tj and miss:
             with st.spinner("🤖 Building your roadmap..."):
-                rm = generate_skill_roadmap([s.strip() for s in miss.split(",")], tj)
-                st.session_state['roadmap']     = rm
-                st.session_state['roadmap_job'] = tj
+                rm=generate_skill_roadmap([s.strip() for s in miss.split(",")],tj)
+                st.session_state['roadmap']=rm
             st.rerun()
-        else:
-            st.error("Please fill both fields!")
+        else: st.error("Please fill both fields!")
 
-# ══════════════════════════════════════════════════════════
-# TAB 7 — Career Chat
-# ══════════════════════════════════════════════════════════
+# ── Tab 7: Career Chat ────────────────────────────────────
 with tab7:
-    bot_nick = st.session_state.get("bot_nickname", "Aria")
-
     st.markdown(f"""
-    <div style="background:linear-gradient(90deg,rgba(0,212,255,0.08),rgba(123,47,247,0.08));
-                border:1px solid rgba(0,212,255,0.15);border-radius:14px;
-                padding:0.75rem 1.2rem;display:flex;align-items:center;margin-bottom:0.5rem;">
+    <div style="background:linear-gradient(90deg,rgba(0,212,255,.08),rgba(123,47,247,.08));
+        border:1px solid rgba(0,212,255,.15);border-radius:14px;
+        padding:.75rem 1.2rem;display:flex;align-items:center;margin-bottom:.5rem;">
         <div style="width:40px;height:40px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
-                    border-radius:50%;display:flex;align-items:center;justify-content:center;
-                    font-size:1.2rem;margin-right:0.75rem;flex-shrink:0;">🤖</div>
+            border-radius:50%;display:flex;align-items:center;justify-content:center;
+            font-size:1.2rem;margin-right:.75rem;">🤖</div>
         <div>
-            <div style="color:white;font-weight:700;font-size:0.95rem;font-family:'Sora',sans-serif;">{bot_nick}</div>
-            <div style="color:#00d4ff;font-size:0.72rem;">● Online · AI Career Mentor</div>
+            <div style="color:white;font-weight:700;font-size:.95rem;">{bot_nick}</div>
+            <div style="color:#00d4ff;font-size:.72rem;">● Online · AI Career Mentor</div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <style>
-    .chat-window {
-        background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 14px; padding: 1rem; min-height: 320px; max-height: 420px;
-        overflow-y: auto; margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;
-    }
-    .msg-user {
-        align-self: flex-end; background: linear-gradient(135deg,#00d4ff,#0099bb); color: #080c14;
-        border-radius: 16px 16px 4px 16px; padding: 0.55rem 1rem; max-width: 75%;
-        font-size: 0.88rem; font-weight: 500; word-wrap: break-word;
-    }
-    .msg-bot {
-        align-self: flex-start; background: rgba(123,47,247,0.12);
-        border: 1px solid rgba(123,47,247,0.2); color: #e0e8f0;
-        border-radius: 16px 16px 16px 4px; padding: 0.55rem 1rem; max-width: 80%;
-        font-size: 0.88rem; word-wrap: break-word;
-    }
-    .msg-label-user { text-align:right; color:#5a6478; font-size:0.7rem; margin-bottom:2px; }
-    .msg-label-bot  { text-align:left;  color:#5a6478; font-size:0.7rem; margin-bottom:2px; }
-    .chat-empty { text-align:center; color:#2a3040; padding: 3rem 1rem; font-size: 0.9rem; }
-    </style>
-    """, unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
     if not st.session_state.chat_history:
-        chat_html = f"""
-        <div class="chat-window">
-            <div class="chat-empty">
-                🤖 <b style="color:#00d4ff">{bot_nick}</b> is ready!<br/>
-                Ask me anything about your career, resume, or job search.<br/><br/>
-                <span style="font-size:0.8rem;color:#2a3040">Type a message below to start chatting →</span>
-            </div>
-        </div>"""
+        chat_html = f'<div class="chat-window"><div class="chat-empty">🤖 <b style="color:#00d4ff">{bot_nick}</b> is ready!<br/>Ask me anything about your career or resume.<br/><br/><span style="font-size:.8rem;color:#2a3040">Type a message below →</span></div></div>'
     else:
-        msgs_html = ""
-        for msg in st.session_state.chat_history:
-            if msg['role'] == 'user':
-                msgs_html += f'<div class="msg-label-user">You</div><div class="msg-user">{msg["content"]}</div>'
-            else:
-                msgs_html += f'<div class="msg-label-bot">{bot_nick}</div><div class="msg-bot">{msg["content"]}</div>'
-        chat_html = f'<div class="chat-window" id="chat-bottom">{msgs_html}</div>'
-
+        msgs=""
+        for m in st.session_state.chat_history:
+            if m['role']=='user': msgs+=f'<div class="msg-label-user">You</div><div class="msg-user">{m["content"]}</div>'
+            else:                 msgs+=f'<div class="msg-label-bot">{bot_nick}</div><div class="msg-bot">{m["content"]}</div>'
+        chat_html=f'<div class="chat-window">{msgs}</div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
-    st.markdown("<div style='margin-bottom:0.4rem;color:#5a6478;font-size:0.78rem;'>💡 Quick questions:</div>", unsafe_allow_html=True)
-    qc1, qc2, qc3, qc4 = st.columns(4)
+    st.markdown("<div style='margin-bottom:.4rem;color:#5a6478;font-size:.78rem;'>💡 Quick questions:</div>", unsafe_allow_html=True)
+    qc1,qc2,qc3,qc4=st.columns(4)
     with qc1:
-        if st.button("📝 Improve resume", key="q1"):
-            st.session_state['quick_q'] = "How can I improve my resume?"
+        if st.button("📝 Improve resume", key="q1"): st.session_state['quick_q']="How can I improve my resume?"
     with qc2:
-        if st.button("💼 Best jobs for me", key="q2"):
-            st.session_state['quick_q'] = f"What are the best jobs for my skills: {', '.join(st.session_state.get('skills',[])[:5])}"
+        if st.button("💼 Best jobs",      key="q2"): st.session_state['quick_q']=f"Best jobs for my skills: {', '.join(st.session_state.get('skills',[])[:5])}"
     with qc3:
-        if st.button("🎯 Interview tips", key="q3"):
-            st.session_state['quick_q'] = "Give me tips to crack technical interviews."
+        if st.button("🎯 Interview tips", key="q3"): st.session_state['quick_q']="Tips to crack technical interviews."
     with qc4:
-        if st.button("📈 Salary advice", key="q4"):
-            st.session_state['quick_q'] = "How do I negotiate a better salary?"
+        if st.button("📈 Salary advice",  key="q4"): st.session_state['quick_q']="How do I negotiate a better salary?"
 
-    with st.form("chat_form", clear_on_submit=True):
-        inp_col, btn_col = st.columns([5, 1])
-        with inp_col:
-            user_msg = st.text_input(
-                "Message",
-                value=st.session_state.pop('quick_q', ''),
-                placeholder=f"Message {bot_nick}...",
-                label_visibility="collapsed"
-            )
-        with btn_col:
-            send = st.form_submit_button("➤ Send", use_container_width=True)
+    with st.form("form_chat", clear_on_submit=True):
+        ic,bc=st.columns([5,1])
+        with ic: user_msg=st.text_input("Message",value=st.session_state.pop('quick_q',''),
+                                         placeholder=f"Message {bot_nick}...",label_visibility="collapsed")
+        with bc: send=st.form_submit_button("➤ Send",use_container_width=True)
 
     if send and user_msg.strip():
-        ctx = f"You are {bot_nick}, a friendly and expert AI career mentor. User: {name}, Education: {education}, Target: {job_target}."
+        ctx=f"You are {bot_nick}, a friendly expert AI career mentor. User: {name}, Education: {education}, Target: {job_target}."
         if 'skills' in st.session_state:
-            ctx += f" Skills: {', '.join(st.session_state['skills'][:10])}. Resume Score: {st.session_state.get('resume_score','?')}/100."
-        ctx += f" Language: {st.session_state.get('language','English')}. Reply in that language. Be concise (max 150 words), warm and practical."
-
+            ctx+=f" Skills: {', '.join(st.session_state['skills'][:10])}. Score: {st.session_state.get('resume_score','?')}/100."
+        ctx+=f" Language: {st.session_state.get('language','English')}. Be concise (max 150 words), warm, practical."
         with st.spinner(f"💬 {bot_nick} is typing..."):
-            resp = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": f"{ctx}\n\nUser message: {user_msg.strip()}"}],
-                temperature=0.5
-            )
-            reply = resp.choices[0].message.content
-
-        st.session_state.chat_history.append({"role": "user",      "content": user_msg.strip()})
-        st.session_state.chat_history.append({"role": "assistant", "content": reply})
+            resp=client.chat.completions.create(model="llama-3.3-70b-versatile",
+                messages=[{"role":"user","content":f"{ctx}\n\nUser: {user_msg.strip()}"}],temperature=0.5)
+            reply=resp.choices[0].message.content
+        st.session_state.chat_history.append({"role":"user","content":user_msg.strip()})
+        st.session_state.chat_history.append({"role":"assistant","content":reply})
         st.rerun()
 
     if st.session_state.chat_history:
-        if st.button("🗑️ Clear Chat", key="clear_chat_btn"):
-            st.session_state.chat_history = []
-            st.rerun()
+        if st.button("🗑️ Clear Chat", key="clear_chat"): st.session_state.chat_history=[]; st.rerun()
 
-# ══════════════════════════════════════════════════════════
-# TAB 8 — Resume Improver
-# ══════════════════════════════════════════════════════════
+# ── Tab 8: Resume Improver ────────────────────────────────
 with tab8:
     st.markdown('<div class="section-title">✍️ Resume Line Improver</div>', unsafe_allow_html=True)
     st.markdown("Paste a weak bullet point → AI makes it powerful! 💪")
-
-    with st.form("improver_form", clear_on_submit=False):
-        ol = st.text_area("Your resume line:", placeholder='"Worked on Python project"', height=100)
-        improve_sub = st.form_submit_button("✨ Improve This Line", use_container_width=True)
-    if improve_sub:
+    with st.form("form_improver"):
+        ol    =st.text_area("Your resume line:",placeholder='"Worked on Python project"',height=100)
+        go_imp=st.form_submit_button("✨ Improve This Line",use_container_width=True)
+    if go_imp:
         if ol.strip():
             with st.spinner("🤖 Rewriting..."):
-                imp = improve_resume_line(ol)
-                st.session_state['improved'] = imp
-        else:
-            st.error("Please enter a resume line!")
-
+                st.session_state['improved']=improve_resume_line(ol)
+        else: st.error("Please enter a resume line!")
     if 'improved' in st.session_state:
         st.markdown("### ✅ Improved Versions:")
-        st.markdown(render_ai_analysis(st.session_state["improved"]), unsafe_allow_html=True)
+        st.markdown(f'<div class="card">{st.session_state["improved"]}</div>',unsafe_allow_html=True)
