@@ -54,21 +54,25 @@ st.set_page_config(
 # ─── Global CSS ────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-* { font-family: 'Inter', sans-serif; }
-h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; }
+* { font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
+h1, h2, h3, h4, h5, h6,
+.login-title, .profile-title, .hero-title, .section-title,
+[class*="section-title"], strong { font-family: 'Sora', sans-serif; }
+p, li, span, div { font-family: 'DM Sans', sans-serif; line-height: 1.65; }
+code, pre { font-family: 'Fira Code', 'Courier New', monospace; }
 
 .stApp { background: #080c14; }
 
 .login-logo {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Sora', sans-serif;
     font-size: 1.1rem; font-weight: 700; color: #00d4ff;
     letter-spacing: 2px; text-transform: uppercase;
     text-align: center; margin-bottom: 0.5rem;
 }
 .login-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Sora', sans-serif;
     font-size: 2.2rem; font-weight: 800;
     background: linear-gradient(135deg, #ffffff 0%, #00d4ff 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -82,7 +86,7 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; }
 .otp-box p { color: #8892a4; font-size: 0.88rem; margin: 0; }
 .otp-box strong { color: #00d4ff; }
 .profile-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Sora', sans-serif;
     font-size: 1.8rem; font-weight: 800; color: white; margin-bottom: 0.3rem;
     text-align: center;
 }
@@ -98,11 +102,11 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; }
     border: 1px solid rgba(0,212,255,0.15);
     border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; text-align: center;
 }
-.welcome-name { font-family:'Space Grotesk',sans-serif; font-size:1rem; font-weight:700; color:white; margin-bottom:0.2rem; }
+.welcome-name { font-family:'Sora',sans-serif; font-size:1rem; font-weight:700; color:white; margin-bottom:0.2rem; }
 .welcome-detail { color: #5a6478; font-size: 0.78rem; }
 .welcome-email { color: #00d4ff; font-size: 0.75rem; margin-top: 0.3rem; }
 .hero-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Sora', sans-serif;
     font-size: 2.6rem; font-weight: 900;
     background: linear-gradient(90deg, #00d4ff, #7b2ff7);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -128,7 +132,7 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; }
     color: #00d4ff; padding: 4px 12px; border-radius: 20px; margin: 4px; font-size: 0.82rem;
 }
 .section-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Sora', sans-serif;
     font-size: 1.3rem; font-weight: 700; color: #00d4ff;
     margin: 1rem 0 0.5rem 0; border-left: 3px solid #7b2ff7; padding-left: 0.75rem;
 }
@@ -193,6 +197,81 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; }
     padding:1.2rem 2rem; text-align:center; font-size:1.5rem; font-weight:800;
     color:white; margin:1rem 0; box-shadow:0 0 30px rgba(255,68,68,0.25);
 }
+
+/* ── AI Output Rendering ──────────────────────────── */
+.ai-block { font-family:'DM Sans',sans-serif; color:#d0dae8; line-height:1.75; }
+
+.ai-section-heading {
+    font-family:'Sora',sans-serif;
+    font-size:1.05rem; font-weight:700;
+    color:#00d4ff; letter-spacing:0.3px;
+    margin: 1.4rem 0 0.5rem; padding: 0.35rem 0.75rem;
+    border-left:3px solid #7b2ff7;
+    background:rgba(0,212,255,0.04); border-radius:0 8px 8px 0;
+}
+.ai-sub-heading {
+    font-family:'Sora',sans-serif;
+    font-size:0.9rem; font-weight:600; color:#b0c4de;
+    margin: 1rem 0 0.3rem;
+}
+.ai-bullet {
+    display:flex; align-items:flex-start; gap:0.5rem;
+    margin:0.35rem 0; padding:0.4rem 0.6rem;
+    border-radius:8px; background:rgba(255,255,255,0.02);
+}
+.ai-bullet-icon { color:#00d4ff; font-size:0.8rem; margin-top:3px; flex-shrink:0; }
+.ai-bullet-text { color:#c8d8e8; font-size:0.88rem; }
+
+.ai-numbered {
+    display:flex; align-items:flex-start; gap:0.6rem;
+    margin:0.5rem 0; padding:0.5rem 0.75rem;
+    background:rgba(123,47,247,0.05); border-radius:10px;
+    border-left:2px solid rgba(123,47,247,0.3);
+}
+.ai-num-badge {
+    background:linear-gradient(135deg,#00d4ff,#7b2ff7);
+    color:white; font-family:'Sora',sans-serif;
+    font-size:0.72rem; font-weight:700; width:22px; height:22px;
+    border-radius:50%; display:flex; align-items:center;
+    justify-content:center; flex-shrink:0; margin-top:1px;
+}
+.ai-num-content { flex:1; }
+.ai-num-title { font-family:'Sora',sans-serif; font-weight:600; font-size:0.9rem; color:#e0eaf4; }
+.ai-num-hint { font-size:0.8rem; color:#6a7f96; margin-top:2px; }
+.ai-num-diff {
+    font-size:0.72rem; font-weight:600; padding:2px 8px; border-radius:10px;
+    margin-top:3px; display:inline-block;
+}
+.diff-easy { background:rgba(0,255,136,0.12); color:#00ff88; }
+.diff-medium { background:rgba(255,187,0,0.12); color:#ffbb00; }
+.diff-hard { background:rgba(255,68,68,0.12); color:#ff6b6b; }
+
+.ai-score-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0.5rem 0.75rem; margin:0.3rem 0;
+    background:rgba(255,255,255,0.03); border-radius:8px;
+}
+.ai-score-label { font-family:'Sora',sans-serif; font-size:0.82rem; color:#8892a4; }
+.ai-score-val { font-family:'Sora',sans-serif; font-weight:700; font-size:0.88rem; color:#00d4ff; }
+
+.ai-tag {
+    display:inline-block; padding:3px 10px; border-radius:12px; margin:3px;
+    font-size:0.78rem; font-weight:500;
+}
+.tag-green { background:rgba(0,255,136,0.1); color:#00ff88; border:1px solid rgba(0,255,136,0.2); }
+.tag-red   { background:rgba(255,68,68,0.1);  color:#ff6b6b; border:1px solid rgba(255,68,68,0.2); }
+.tag-blue  { background:rgba(0,212,255,0.1);  color:#00d4ff; border:1px solid rgba(0,212,255,0.2); }
+
+.ai-summary-box {
+    background:rgba(0,212,255,0.04); border:1px solid rgba(0,212,255,0.12);
+    border-radius:12px; padding:1rem 1.2rem; margin:1rem 0;
+    font-size:0.9rem; color:#b8cce0; line-height:1.7;
+}
+.chart-desc {
+    font-size:0.82rem; color:#5a6478; font-style:italic;
+    margin:0.2rem 0 0.8rem; padding:0.4rem 0.75rem;
+    border-left:2px solid rgba(0,212,255,0.2);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -240,11 +319,74 @@ def get_user(email):
     return doc.to_dict() if doc.exists else None
 
 
-def create_user(email, name, job_target, education, purpose):
+def create_user(email, name, job_target, education, purpose, bot_nickname="Aria"):
     db.collection("users").document(email).set({
         "email": email, "name": name,
-        "job_target": job_target, "education": education, "purpose": purpose
+        "job_target": job_target, "education": education,
+        "purpose": purpose, "bot_nickname": bot_nickname
     })
+
+
+# ══════════════════════════════════════════════════════════
+# AI OUTPUT RENDERER
+# ══════════════════════════════════════════════════════════
+
+def render_ai_analysis(raw_text):
+    import re
+    html = '<div class="ai-block">'
+    lines = raw_text.split("\n")
+    section_icons = {
+        "SCORE": "&#127919;", "STRENGTH": "&#9989;", "WEAKNESS": "&#9888;",
+        "SUGGESTION": "&#128161;", "SUMMARY": "&#128203;",
+        "BREAKDOWN": "&#128202;", "ATS": "&#129302;",
+        "KEYWORD": "&#128273;", "RECOMMENDATION": "&#128204;",
+        "TAILORING": "&#128295;", "ROADMAP": "&#128506;",
+        "INTERVIEW": "&#127914;", "EXPERIENCE": "&#128084;", "OVERALL": "&#127942;",
+    }
+    for line in lines:
+        s = line.strip()
+        if not s:
+            continue
+        # Section headings (CAPS:)
+        hm = re.match(r"^([A-Z][A-Z _&/\-]{2,}):(.*)$", s)
+        if hm:
+            key  = hm.group(1).strip()
+            val  = hm.group(2).strip()
+            icon = next((v for k, v in section_icons.items() if k in key), "&#128204;")
+            clean = key.replace("_", " ").title()
+            html += f'<div class="ai-section-heading">{icon} {clean}</div>'
+            if val:
+                html += f'<div class="ai-summary-box" style="padding:0.5rem 1rem;margin:0.25rem 0 0.5rem;">{val}</div>'
+            continue
+        # Bullet points
+        if s.startswith("- ") or s.startswith("* "):
+            text = s[2:].strip()
+            html += f'<div class="ai-bullet"><span class="ai-bullet-icon">&#9656;</span><span class="ai-bullet-text">{text}</span></div>'
+            continue
+        # Numbered items
+        nm = re.match(r"^(\d+)\. (.+)$", s)
+        if nm:
+            n, text = nm.group(1), nm.group(2)
+            html += f'<div class="ai-numbered"><div class="ai-num-badge">{n}</div><div class="ai-num-content"><div class="ai-num-title">{text}</div></div></div>'
+            continue
+        # Score breakdown X/Y
+        sm = re.match(r"^-?\s*(.+):\s*(\d+)/(\d+)\s*$", s)
+        if sm:
+            label, got, mx = sm.group(1).strip(), sm.group(2), sm.group(3)
+            html += f'<div class="ai-score-row"><span class="ai-score-label">{label}</span><span class="ai-score-val">{got}/{mx}</span></div>'
+            continue
+        # Separators
+        if len(set(s)) <= 3 and set(s) <= set("=-_"):
+            html += "<hr style='border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0.5rem 0'>"
+            continue
+        # Emoji/hint lines
+        if s[:2] in ("&#", "**"):
+            html += f'<div style="color:#8892a4;font-size:0.83rem;padding:0.2rem 0.8rem;">{s}</div>'
+            continue
+        # Normal text
+        html += f'<div style="color:#9aaec8;font-size:0.88rem;padding:0.2rem 0.4rem;line-height:1.65;">{s}</div>'
+    html += "</div>"
+    return html
 
 
 # ══════════════════════════════════════════════════════════
@@ -312,8 +454,23 @@ if st.session_state.page == "login":
                     if otp_input.strip() == st.session_state.otp_code:
                         st.session_state.otp_sent = False
                         st.session_state.otp_code = ""
-                        # Always go to profile page after login
-                        st.session_state.page = "profile"
+                        # Check if returning user with saved profile
+                        existing_user = get_user(st.session_state.otp_email) or {}
+                        if existing_user.get("name") and existing_user.get("education") and existing_user.get("job_target"):
+                            # Returning user — load profile directly, skip profile+nickname pages
+                            st.session_state.user = {
+                                "email": st.session_state.otp_email,
+                                "name": existing_user["name"],
+                                "education": existing_user["education"],
+                                "job_target": existing_user["job_target"],
+                                "purpose": existing_user.get("purpose", "")
+                            }
+                            if not st.session_state.bot_nickname:
+                                st.session_state.bot_nickname = existing_user.get("bot_nickname", "Aria")
+                            st.session_state.page = "app"
+                        else:
+                            # New user — go through profile setup
+                            st.session_state.page = "profile"
                         st.rerun()
                     else:
                         st.error("❌ Wrong OTP. Try again.")
@@ -432,11 +589,16 @@ if st.session_state.page == "nickname":
             if st.button("✨ Set Name & Enter App", key="set_nickname_btn"):
                 final_nick = nickname.strip() if nickname.strip() else "Aria"
                 st.session_state.bot_nickname = final_nick
+                # Save nickname to Firebase too
+                if st.session_state.user:
+                    db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": final_nick})
                 st.session_state.page = "app"
                 st.rerun()
         with col_b:
             if st.button("⏭️ Skip (Use 'Aria')", key="skip_nickname_btn"):
                 st.session_state.bot_nickname = "Aria"
+                if st.session_state.user:
+                    db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": "Aria"})
                 st.session_state.page = "app"
                 st.rerun()
 
@@ -786,7 +948,7 @@ with tab1:
         st.progress(score / 100)
 
         st.markdown('<div class="section-title">🤖 Full AI Analysis</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="card">{analysis}</div>', unsafe_allow_html=True)
+        st.markdown(render_ai_analysis(analysis), unsafe_allow_html=True)
 
         st.markdown('<div class="section-title">🧠 Skills Detected</div>', unsafe_allow_html=True)
         if categories:
@@ -819,66 +981,197 @@ with tab1:
 with tab2:
     st.markdown('<div class="section-title">📊 Visual Analytics</div>', unsafe_allow_html=True)
     if 'skills' not in st.session_state:
-        st.info("👆 Please analyze your resume first!")
+        st.markdown("""
+        <div class="ai-summary-box">
+            📌 <b>How to use this tab:</b> First go to <b>Upload & Analyze</b>, upload your resume,
+            and click <b>Analyze My Resume</b>. Then come back here to see your visual analytics.
+        </div>""", unsafe_allow_html=True)
     else:
         score      = st.session_state['resume_score']
         skills     = st.session_state['skills']
         categories = st.session_state['categories']
-        jobs       = st.session_state['jobs']
+        jobs       = st.session_state.get('jobs', [])
+        analysis   = st.session_state.get('analysis', '')
 
+        # ── Parse score breakdown from analysis ──────────────
+        breakdown = {}
+        breakdown_labels = {
+            "Contact": "Contact & Info",
+            "Summary": "Summary",
+            "Experience": "Experience",
+            "Skills": "Skills",
+            "Education": "Education",
+            "Projects": "Projects",
+            "Certifications": "Certifications",
+            "Formatting": "Formatting"
+        }
+        import re
+        for key, label in breakdown_labels.items():
+            match = re.search(rf"{key}.*?(\d+)/(\d+)", analysis)
+            if match:
+                breakdown[label] = {"got": int(match.group(1)), "max": int(match.group(2))}
+
+        # ── Row 1: Score Gauge + Skills Donut ────────────────
         col1, col2 = st.columns(2)
+
         with col1:
-            st.markdown("#### 🎯 Resume Score Gauge")
+            st.markdown("#### 🎯 Resume Score")
+            st.markdown('<div class="chart-desc">Your overall resume quality score out of 100. Green = job-ready (70+), Yellow = needs work (50–70), Red = urgent improvements needed.</div>', unsafe_allow_html=True)
+            color = "#00ff88" if score >= 70 else "#ffbb00" if score >= 50 else "#ff4444"
+            label_text = "Job Ready! 🚀" if score >= 70 else "Needs Work 📈" if score >= 50 else "Urgent Fix ⚠️"
             fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number+delta", value=score, domain={'x':[0,1],'y':[0,1]},
-                title={'text':"Resume Score",'font':{'color':'white'}},
-                delta={'reference':70,'increasing':{'color':"#00ff88"}},
-                gauge={'axis':{'range':[0,100],'tickcolor':"white"},'bar':{'color':"#00d4ff"},
-                       'bgcolor':"rgba(0,0,0,0)",
-                       'steps':[{'range':[0,50],'color':'rgba(255,68,68,0.3)'},
-                                 {'range':[50,70],'color':'rgba(255,187,0,0.3)'},
-                                 {'range':[70,100],'color':'rgba(0,255,136,0.3)'}],
-                       'threshold':{'line':{'color':"#7b2ff7",'width':4},'thickness':0.75,'value':70}}
+                mode="gauge+number",
+                value=score,
+                domain={'x': [0, 1], 'y': [0, 1]},
+                title={'text': label_text, 'font': {'color': color, 'family': 'Sora', 'size': 14}},
+                number={'font': {'color': color, 'size': 48, 'family': 'Sora'}},
+                gauge={
+                    'axis': {'range': [0, 100], 'tickcolor': "#5a6478", 'tickfont': {'color': '#5a6478'}},
+                    'bar': {'color': color, 'thickness': 0.28},
+                    'bgcolor': "rgba(0,0,0,0)",
+                    'borderwidth': 0,
+                    'steps': [
+                        {'range': [0, 50],  'color': 'rgba(255,68,68,0.12)'},
+                        {'range': [50, 70], 'color': 'rgba(255,187,0,0.12)'},
+                        {'range': [70, 100],'color': 'rgba(0,255,136,0.12)'}
+                    ],
+                    'threshold': {'line': {'color': color, 'width': 3}, 'thickness': 0.85, 'value': score}
+                }
             ))
-            fig_gauge.update_layout(paper_bgcolor='rgba(0,0,0,0)',font={'color':'white'},height=300)
+            fig_gauge.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white'}, height=280, margin=dict(t=40, b=10, l=20, r=20))
             st.plotly_chart(fig_gauge, use_container_width=True)
 
         with col2:
             st.markdown("#### 🧠 Skills by Category")
+            st.markdown('<div class="chart-desc">Breakdown of your skills by domain. Hover over each slice to see how many skills you have per category. A balanced chart means you are well-rounded.</div>', unsafe_allow_html=True)
             if categories:
-                fig_pie = px.pie(names=list(categories.keys()), values=[len(v) for v in categories.values()],
-                                  color_discrete_sequence=px.colors.sequential.Plasma, hole=0.4)
-                fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)',font={'color':'white'},height=300)
+                cat_names = list(categories.keys())
+                cat_counts = [len(v) for v in categories.values()]
+                fig_pie = go.Figure(go.Pie(
+                    labels=cat_names,
+                    values=cat_counts,
+                    hole=0.5,
+                    textinfo='label+value',
+                    hovertemplate='<b>%{label}</b><br>%{value} skills<br>%{percent}<extra></extra>',
+                    marker=dict(colors=['#00d4ff','#7b2ff7','#00ff88','#ffbb00','#ff6b6b','#ff8c00','#a78bfa','#34d399'],
+                                line=dict(color='#080c14', width=2))
+                ))
+                fig_pie.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white', 'family': 'DM Sans'},
+                    height=280, margin=dict(t=10, b=10, l=10, r=10),
+                    legend=dict(font=dict(size=11), bgcolor='rgba(0,0,0,0)')
+                )
                 st.plotly_chart(fig_pie, use_container_width=True)
+            else:
+                st.info("No skill categories detected yet.")
 
-        st.markdown("#### 💼 Job Match Scores")
-        jt = [j['title'] for j in jobs[:8]]; js = [j['match_score'] for j in jobs[:8]]
-        cb = ['#00ff88' if s>=70 else '#ffbb00' if s>=40 else '#ff4444' for s in js]
-        fig_bar = go.Figure(go.Bar(x=js,y=jt,orientation='h',marker_color=cb,
-                                    text=[f"{s}%" for s in js],textposition='outside'))
-        fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
-                               font={'color':'white'},xaxis={'range':[0,110]},height=400)
-        st.plotly_chart(fig_bar, use_container_width=True)
+        # ── Row 2: Score Breakdown Bar ────────────────────────
+        if breakdown:
+            st.markdown("#### 📋 Score Breakdown by Section")
+            st.markdown('<div class="chart-desc">How you scored in each section of your resume. Each bar shows your actual score vs the maximum possible. Focus on the shortest bars first.</div>', unsafe_allow_html=True)
+            bd_labels = list(breakdown.keys())
+            bd_got    = [breakdown[k]["got"] for k in bd_labels]
+            bd_max    = [breakdown[k]["max"] for k in bd_labels]
+            bd_pct    = [round(g/m*100) if m > 0 else 0 for g, m in zip(bd_got, bd_max)]
+            bd_colors = ['#00ff88' if p >= 70 else '#ffbb00' if p >= 40 else '#ff4444' for p in bd_pct]
+            fig_bd = go.Figure()
+            fig_bd.add_trace(go.Bar(
+                name='Your Score', x=bd_labels, y=bd_got,
+                marker_color=bd_colors,
+                text=[f"{g}/{m}" for g, m in zip(bd_got, bd_max)],
+                textposition='outside',
+                hovertemplate='<b>%{x}</b><br>Got: %{y}<br>Max: %{customdata}<extra></extra>',
+                customdata=bd_max
+            ))
+            fig_bd.add_trace(go.Bar(
+                name='Remaining', x=bd_labels, y=[m - g for g, m in zip(bd_got, bd_max)],
+                marker_color='rgba(255,255,255,0.05)',
+                hoverinfo='skip'
+            ))
+            fig_bd.update_layout(
+                barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font={'color': 'white', 'family': 'DM Sans'},
+                xaxis={'tickfont': {'size': 11}}, yaxis={'visible': False},
+                height=320, margin=dict(t=30, b=10, l=10, r=10),
+                legend=dict(bgcolor='rgba(0,0,0,0)', font=dict(size=10)),
+                showlegend=True
+            )
+            st.plotly_chart(fig_bd, use_container_width=True)
 
-        st.markdown("#### 🕸️ Skill Radar")
-        if categories:
-            rc = list(categories.keys()); rv = [len(v) for v in categories.values()]
-            rc.append(rc[0]); rv.append(rv[0])
-            fig_r = go.Figure(go.Scatterpolar(r=rv,theta=rc,fill='toself',
-                                               fillcolor='rgba(0,212,255,0.12)',line_color='#00d4ff'))
-            fig_r.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)',
-                radialaxis=dict(visible=True,gridcolor='rgba(255,255,255,0.1)',color='white'),
-                angularaxis=dict(gridcolor='rgba(255,255,255,0.1)',color='white')),
-                paper_bgcolor='rgba(0,0,0,0)',font={'color':'white'},height=400)
+        # ── Row 3: Job Match Bar ──────────────────────────────
+        if jobs:
+            st.markdown("#### 💼 Job Match Scores")
+            st.markdown('<div class="chart-desc">How well your resume matches different job roles based on your skills and experience. Green bars (70%+) are your best-fit jobs to apply for right now.</div>', unsafe_allow_html=True)
+            jt = [j['title'] for j in jobs[:8]]
+            js = [j.get('match_score') or j.get('similarity_score', 0) for j in jobs[:8]]
+            cb = ['#00ff88' if s >= 70 else '#ffbb00' if s >= 40 else '#ff4444' for s in js]
+            fig_bar = go.Figure(go.Bar(
+                x=js, y=jt, orientation='h',
+                marker_color=cb,
+                text=[f"{s}%" for s in js], textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Match: %{x}%<extra></extra>'
+            ))
+            fig_bar.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font={'color': 'white', 'family': 'DM Sans'},
+                xaxis={'range': [0, 115], 'showgrid': False, 'ticksuffix': '%'},
+                yaxis={'tickfont': {'size': 11}},
+                height=380, margin=dict(t=10, b=10, l=10, r=60)
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        # ── Row 4: Skill Radar ────────────────────────────────
+        if categories and len(categories) >= 3:
+            st.markdown("#### 🕸️ Skill Coverage Radar")
+            st.markdown('<div class="chart-desc">A radar (spider) chart showing how many skills you have in each category. A larger, rounder shape means broader skill coverage. Narrow spikes mean you are specialized in few areas.</div>', unsafe_allow_html=True)
+            rc = list(categories.keys())
+            rv = [len(v) for v in categories.values()]
+            rc_closed = rc + [rc[0]]
+            rv_closed = rv + [rv[0]]
+            fig_r = go.Figure(go.Scatterpolar(
+                r=rv_closed, theta=rc_closed, fill='toself',
+                fillcolor='rgba(0,212,255,0.10)',
+                line=dict(color='#00d4ff', width=2),
+                marker=dict(color='#7b2ff7', size=6),
+                hovertemplate='<b>%{theta}</b><br>%{r} skills<extra></extra>'
+            ))
+            fig_r.update_layout(
+                polar=dict(
+                    bgcolor='rgba(0,0,0,0)',
+                    radialaxis=dict(visible=True, gridcolor='rgba(255,255,255,0.08)', color='#5a6478', tickfont=dict(size=9)),
+                    angularaxis=dict(gridcolor='rgba(255,255,255,0.08)', color='#8892a4', tickfont=dict(size=11))
+                ),
+                paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white', 'family': 'DM Sans'},
+                height=380, margin=dict(t=20, b=20, l=20, r=20)
+            )
             st.plotly_chart(fig_r, use_container_width=True)
 
+        # ── Score Comparison (if previous exists) ─────────────
         if 'previous_score' in st.session_state:
-            fig_c = go.Figure(go.Bar(x=['Previous','Current'],
-                y=[st.session_state['previous_score'],score],marker_color=['#ff6b6b','#00ff88'],
-                text=[str(st.session_state['previous_score']),str(score)],textposition='outside'))
-            fig_c.update_layout(paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
-                                  font={'color':'white'},yaxis={'range':[0,110]},height=300)
+            prev = st.session_state['previous_score']
+            st.markdown("#### 📈 Score Improvement")
+            st.markdown('<div class="chart-desc">Comparison between your previous upload and current resume score. Green bar = improvement!</div>', unsafe_allow_html=True)
+            diff = score - prev
+            c_prev = '#ff6b6b' if prev < score else '#00ff88'
+            c_curr = '#00ff88' if score >= prev else '#ff4444'
+            fig_c = go.Figure(go.Bar(
+                x=['Previous Resume', 'Current Resume'],
+                y=[prev, score],
+                marker_color=[c_prev, c_curr],
+                text=[f"{prev}/100", f"{score}/100"],
+                textposition='outside',
+                hovertemplate='%{x}: %{y}/100<extra></extra>'
+            ))
+            fig_c.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font={'color': 'white', 'family': 'DM Sans'},
+                yaxis={'range': [0, 115], 'showgrid': False},
+                height=280, margin=dict(t=30, b=10, l=10, r=10)
+            )
             st.plotly_chart(fig_c, use_container_width=True)
+            diff_color = "#00ff88" if diff > 0 else "#ff4444" if diff < 0 else "#ffbb00"
+            diff_msg   = f"📈 +{diff} points improvement!" if diff > 0 else f"📉 {diff} points — try the Resume Improver tab!" if diff < 0 else "➡️ Same score as before."
+            st.markdown(f'<div class="ai-summary-box" style="border-color:{diff_color}40;color:{diff_color};font-weight:600;">{diff_msg}</div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
 # TAB 3 — Smart Job Match
@@ -1001,7 +1294,7 @@ Job Description:
                 cc2="#00ff88" if ats>=70 else "#ffbb00" if ats>=50 else "#ff4444"
                 st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{cc2}">{ats}%</div><div style="color:#5a6478">ATS Score</div></div>',unsafe_allow_html=True)
                 st.progress(ats/100)
-            st.markdown(f'<div class="card">{result}</div>',unsafe_allow_html=True)
+            st.markdown(render_ai_analysis(result), unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
 # TAB 5 — Interview Prep
@@ -1023,8 +1316,65 @@ with tab5:
                 st.session_state['questions']    = qs
                 st.session_state['selected_job'] = sel_job
         if 'questions' in st.session_state:
-            st.markdown(f"### 📝 {st.session_state['selected_job']} Questions")
-            st.markdown(f'<div class="card">{st.session_state["questions"]}</div>',unsafe_allow_html=True)
+            raw_q = st.session_state["questions"]
+            st.markdown(f'''
+            <div style="margin-bottom:0.5rem;">
+                <span style="font-family:Sora,sans-serif;font-size:1.1rem;font-weight:700;color:white;">
+                    📝 Interview Questions
+                </span>
+                <span style="font-size:0.82rem;color:#5a6478;margin-left:0.5rem;">— {st.session_state["selected_job"]}</span>
+            </div>''', unsafe_allow_html=True)
+
+            def render_interview_questions(raw):
+                import re
+                html = '<div class="ai-block">'
+                lines = raw.split("\n")
+                q_num = 0
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    # Section headings
+                    if any(h in line.upper() for h in ["TECHNICAL QUESTIONS", "BEHAVIORAL QUESTIONS", "SITUATIONAL", "CASE QUESTIONS"]):
+                        icon = "⚙️" if "TECHNICAL" in line.upper() else "🧠" if "BEHAVIORAL" in line.upper() else "💡"
+                        clean = re.sub(r"[:#\*]+", "", line).strip()
+                        html += f'<div class="ai-section-heading">{icon} {clean}</div>'
+                    # Numbered question line
+                    elif re.match(r"^\d+\.", line):
+                        q_num += 1
+                        # Parse: "1. Question text | Difficulty: Hard"
+                        parts = line.split("|")
+                        q_text = re.sub(r"^\d+\.\s*", "", parts[0]).strip()
+                        diff_label = ""
+                        diff_class = "diff-medium"
+                        if len(parts) > 1:
+                            diff_match = re.search(r"(Easy|Medium|Hard)", parts[1], re.I)
+                            if diff_match:
+                                d = diff_match.group(1).capitalize()
+                                diff_class = f"diff-{d.lower()}"
+                                diff_label = f'<span class="ai-num-diff {diff_class}">{d}</span>'
+                        html += f'''
+                        <div class="ai-numbered">
+                            <div class="ai-num-badge">{q_num}</div>
+                            <div class="ai-num-content">
+                                <div class="ai-num-title">{q_text}</div>
+                                {diff_label}
+                            </div>
+                        </div>'''
+                    # Hint / good answer line
+                    elif line.startswith("→"):
+                        hint_text = line.replace("→", "").replace("Good answer covers:", "").strip()
+                        html += f'<div class="ai-num-hint" style="margin-left:2.2rem;margin-top:-0.3rem;margin-bottom:0.4rem;color:#5a7a96;font-size:0.78rem;">💡 {hint_text}</div>'
+                    # Skip separator lines
+                    elif set(line) <= set("=-─━"):
+                        html += "<hr style='border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0.5rem 0'>"
+                    # Regular text
+                    else:
+                        html += f'<div style="color:#8892a4;font-size:0.82rem;padding:0.2rem 0.6rem;">{line}</div>'
+                html += "</div>"
+                return html
+
+            st.markdown(render_interview_questions(raw_q), unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
 # TAB 6 — Roadmap
@@ -1032,7 +1382,7 @@ with tab5:
 with tab6:
     st.markdown('<div class="section-title">📚 AI Learning Roadmap</div>', unsafe_allow_html=True)
     if 'roadmap' in st.session_state:
-        st.markdown(f'<div class="card">{st.session_state["roadmap"]}</div>',unsafe_allow_html=True)
+        st.markdown(render_ai_analysis(st.session_state["roadmap"]), unsafe_allow_html=True)
     else:
         st.info("Generate a custom roadmap below!")
 
@@ -1064,7 +1414,7 @@ with tab7:
                     border-radius:50%;display:flex;align-items:center;justify-content:center;
                     font-size:1.2rem;margin-right:0.75rem;flex-shrink:0;">🤖</div>
         <div>
-            <div style="color:white;font-weight:700;font-size:0.95rem;font-family:'Space Grotesk',sans-serif;">
+            <div style="color:white;font-weight:700;font-size:0.95rem;font-family:'Sora',sans-serif;">
                 {bot_nick}
             </div>
             <div style="color:#00d4ff;font-size:0.72rem;">● Online · AI Career Mentor</div>
@@ -1210,4 +1560,4 @@ with tab8:
 
     if 'improved' in st.session_state:
         st.markdown("### ✅ Improved Versions:")
-        st.markdown(f'<div class="card">{st.session_state["improved"]}</div>',unsafe_allow_html=True)
+        st.markdown(render_ai_analysis(st.session_state["improved"]), unsafe_allow_html=True)
