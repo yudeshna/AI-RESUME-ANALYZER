@@ -501,22 +501,9 @@ if st.session_state.page == "login":
                 if otp_input.strip() == st.session_state.otp_code:
                     st.session_state.otp_sent = False
                     st.session_state.otp_code = ""
-                    _email = st.session_state.otp_email
-                    _saved = get_user(_email) or {}
-                    if _saved.get("name") and _saved.get("education") and _saved.get("job_target"):
-                        # ✅ Returning user — load everything, skip profile & nickname
-                        st.session_state.user = {
-                            "email": _email,
-                            "name":  _saved["name"],
-                            "education":  _saved["education"],
-                            "job_target": _saved["job_target"],
-                            "purpose":    _saved.get("purpose", ""),
-                        }
-                        st.session_state.bot_nickname = _saved.get("bot_nickname", "Aria")
-                        st.session_state.page = "app"
-                    else:
-                        # 🆕 New user — go to profile setup
-                        st.session_state.page = "profile"
+                    # Always go to profile page on every login
+                    # (pre-filled if returning user, blank if new)
+                    st.session_state.page = "profile"
                     st.rerun()
                 else:
                     st.error("❌ Wrong OTP. Try again.")
@@ -543,47 +530,59 @@ if st.session_state.page == "profile":
 
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        st.markdown("""
-        <div style="height:30px"></div>
-        <div style="text-align:center;font-size:3rem;margin-bottom:0.5rem;">👤</div>
-        <div class="profile-title">Almost there!</div>
-        <div class="profile-sub">Tell us about yourself to personalize your experience</div>
-        <div style="height:10px"></div>
-        <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Profile Setup</span></div>
-        <div style="height:16px"></div>
-        """, unsafe_allow_html=True)
+        # Check if returning user (has saved data in Firebase)
+        _otp_email = st.session_state.get("otp_email", "")
+        _saved = get_user(_otp_email) or {} if _otp_email else {}
+        _is_returning = bool(_saved.get("name") and _saved.get("education") and _saved.get("job_target"))
 
-        st.markdown(f"**📧 Logged in as:** `{st.session_state.otp_email}`")
+        if _is_returning:
+            st.markdown("""
+            <div style="height:30px"></div>
+            <div style="text-align:center;font-size:3rem;margin-bottom:0.5rem;">👋</div>
+            <div class="profile-title">Welcome back!</div>
+            <div class="profile-sub">Confirm or update your details to continue</div>
+            <div style="height:10px"></div>
+            <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Confirm Details</span></div>
+            <div style="height:16px"></div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="height:30px"></div>
+            <div style="text-align:center;font-size:3rem;margin-bottom:0.5rem;">👤</div>
+            <div class="profile-title">Almost there!</div>
+            <div class="profile-sub">Tell us about yourself to personalize your experience</div>
+            <div style="height:10px"></div>
+            <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Profile Setup</span></div>
+            <div style="height:16px"></div>
+            """, unsafe_allow_html=True)
+
+        st.markdown(f"**📧 Logged in as:** `{_otp_email}`")
         st.markdown("---")
 
-        # Only pre-fill if editing profile (user already set), blank for truly new
-        existing = get_user(st.session_state.get("otp_email","")) or {}
-        # If this is a returning user editing from settings, pre-fill. 
-        # If brand new user, leave blank.
-        prefill_name     = existing.get("name", "")
-        prefill_edu      = existing.get("education", "")
-        prefill_job      = existing.get("job_target", "")
-
         with st.form("profile_form", clear_on_submit=False):
-            name       = st.text_input("👤 Full Name", value=prefill_name, placeholder="e.g. Priya Sharma")
-            education  = st.text_input("🎓 Education / Degree", value=prefill_edu, placeholder="e.g. B.Tech Computer Science")
-            job_target = st.text_input("🎯 Target Job Role", value=prefill_job, placeholder="e.g. Data Scientist, SDE, Product Manager")
+            name       = st.text_input("👤 Full Name",          value=_saved.get("name",""),       placeholder="e.g. Priya Sharma")
+            education  = st.text_input("🎓 Education / Degree", value=_saved.get("education",""),  placeholder="e.g. B.Tech Computer Science")
+            job_target = st.text_input("🎯 Target Job Role",    value=_saved.get("job_target",""), placeholder="e.g. Data Scientist, SDE, Product Manager")
 
             purpose_options = ["Campus Placement", "Internship", "Full-time Job", "Career Switch", "Higher Studies", "Freelance / Gig Work"]
-            saved_purpose = existing.get("purpose", "Campus Placement")
-            purpose_index = purpose_options.index(saved_purpose) if saved_purpose in purpose_options else 0
+            saved_purpose   = _saved.get("purpose", "Campus Placement")
+            purpose_index   = purpose_options.index(saved_purpose) if saved_purpose in purpose_options else 0
             purpose = st.selectbox("📌 Why are you using this app?", purpose_options, index=purpose_index)
 
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            submitted_profile = st.form_submit_button("🚀 Complete Setup & Continue", use_container_width=True)
+            btn_label = "✅ Confirm & Enter App" if _is_returning else "🚀 Complete Setup & Continue"
+            submitted_profile = st.form_submit_button(btn_label, use_container_width=True)
 
         if submitted_profile:
             if name and education and job_target:
-                create_user(st.session_state.otp_email, name, job_target, education, purpose)
+                create_user(_otp_email, name, job_target, education, purpose)
                 st.session_state.user = {
-                    "email": st.session_state.otp_email, "name": name,
+                    "email": _otp_email, "name": name,
                     "education": education, "job_target": job_target, "purpose": purpose
                 }
+                # Load saved nickname if exists
+                if not st.session_state.bot_nickname:
+                    st.session_state.bot_nickname = _saved.get("bot_nickname", "")
                 if not st.session_state.bot_nickname:
                     st.session_state.page = "nickname"
                 else:
