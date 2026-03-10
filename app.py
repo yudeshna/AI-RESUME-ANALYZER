@@ -2,7 +2,10 @@ import streamlit as st
 import tempfile
 import os
 import random
+import smtplib
 import pandas as pd
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import plotly.graph_objects as go
 import plotly.express as px
 import firebase_admin
@@ -35,6 +38,10 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+
+# ─── Email Config ──────────────────────────────────────────
+SENDER_EMAIL    = "nandu19jul@gmail.com"
+SENDER_PASSWORD = "geyc nypl ctnc xexm"
 
 # ─── Page Config ───────────────────────────────────────────
 st.set_page_config(
@@ -298,102 +305,43 @@ code, pre { font-family: 'Fira Code', 'Courier New', monospace; }
 # HELPER FUNCTIONS
 # ══════════════════════════════════════════════════════════
 
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-SENDER_EMAIL    = "nandu19jul@gmail.com"
-SENDER_PASSWORD = "geyc nypl ctnc xexm"
-
-def send_otp_email(to_email, otp):
+def send_otp_email(receiver_email, otp):
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Your OTP for AI Resume Analyzer: {otp}"
+        msg["Subject"] = "🔐 Your OTP — AI Resume Analyzer Pro"
         msg["From"]    = SENDER_EMAIL
-        msg["To"]      = to_email
+        msg["To"]      = receiver_email
         html = f"""
-        <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:32px;
-                    background:#0d1117;border-radius:12px;border:1px solid #30363d;">
-          <h2 style="color:#00d4ff;margin:0 0 8px;">🔐 Your OTP Code</h2>
-          <p style="color:#8b949e;margin:0 0 24px;">Use this code to sign in to AI Resume Analyzer Pro</p>
-          <div style="background:#161b22;border-radius:8px;padding:24px;text-align:center;
-                      font-size:36px;font-weight:bold;letter-spacing:12px;color:#e6edf3;
-                      border:1px solid #30363d;">{otp}</div>
-          <p style="color:#8b949e;margin:24px 0 0;font-size:13px;">
-            Valid for 10 minutes. Do not share this code with anyone.
-          </p>
-        </div>"""
+        <div style="font-family:'Segoe UI',Arial,sans-serif;background:#080c14;padding:2.5rem;
+                    border-radius:16px;max-width:500px;margin:auto;border:1px solid rgba(255,255,255,0.08);">
+            <div style="text-align:center;margin-bottom:1.5rem;">
+                <div style="font-size:2.5rem;margin-bottom:0.5rem;">🚀</div>
+                <h2 style="color:#00d4ff;margin:0;font-size:1.4rem;font-weight:800;">AI Resume Analyzer Pro</h2>
+                <p style="color:#5a6478;font-size:0.9rem;margin:0.3rem 0 0;">Your login verification code</p>
+            </div>
+            <div style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);
+                        border-radius:12px;padding:1.5rem 2rem;text-align:center;margin:1.5rem 0;">
+                <p style="color:#8892a4;font-size:0.85rem;margin:0 0 0.5rem;">Your One-Time Password</p>
+                <div style="font-size:2.8rem;font-weight:900;color:white;letter-spacing:12px;font-family:monospace;">{otp}</div>
+            </div>
+            <p style="color:#5a6478;font-size:0.8rem;text-align:center;margin:0;">
+                ⏱️ Valid for 5 minutes &nbsp;·&nbsp; 🔒 Do not share this code
+            </p>
+        </div>
+        """
         msg.attach(MIMEText(html, "html"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
-            s.login(SENDER_EMAIL, SENDER_PASSWORD)
-            s.sendmail(SENDER_EMAIL, to_email, msg.as_string())
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, receiver_email, msg.as_string())
         return True
     except Exception as e:
         st.error(f"❌ Email error: {e}")
         return False
 
 
-def send_phone_otp(phone, otp):
-    """Send OTP via Fast2SMS"""
-    try:
-        import urllib.request, json as _json
-        api_key = st.secrets.get("FAST2SMS_KEY", "")
-        if not api_key:
-            return False, "no_key"
-        number = phone.replace("+91","").replace(" ","").replace("-","")[-10:]
-        payload = _json.dumps({
-            "route": "otp",
-            "variables_values": otp,
-            "numbers": number
-        }).encode()
-        req = urllib.request.Request(
-            "https://www.fast2sms.com/dev/bulkV2",
-            data=payload,
-            headers={"authorization": api_key, "Content-Type": "application/json"}
-        )
-        res = urllib.request.urlopen(req, timeout=10)
-        result = _json.loads(res.read())
-        if result.get("return") == True:
-            return True, "sms"
-        return False, "failed"
-    except Exception as e:
-        return False, str(e)
-
-
-def get_user(identifier):
-    """Get user by email or phone"""
-    if not identifier:
-        return None
-    doc = db.collection("users").document(identifier).get()
+def get_user(email):
+    doc = db.collection("users").document(email).get()
     return doc.to_dict() if doc.exists else None
-
-
-def save_session_token(identifier, token):
-    """Save a persistent session token so app reopens without login"""
-    db.collection("sessions").document(token).set({
-        "identifier": identifier,
-        "created": datetime.datetime.now().isoformat()
-    })
-
-
-def get_session_user(token):
-    """Return user data if session token is valid"""
-    if not token:
-        return None
-    doc = db.collection("sessions").document(token).get()
-    if not doc.exists:
-        return None
-    data = doc.to_dict()
-    return get_user(data.get("identifier",""))
-
-
-def delete_session_token(token):
-    """Remove session token on logout"""
-    if token:
-        try:
-            db.collection("sessions").document(token).delete()
-        except:
-            pass
 
 
 def create_user(email, name, job_target, education, purpose, bot_nickname="Aria"):
@@ -470,36 +418,16 @@ def render_ai_analysis(raw_text):
 # SESSION STATE INIT
 # ══════════════════════════════════════════════════════════
 
-# ── Persistent session check (app reopen without login) ──
-import hashlib, time
-
-def _make_token(identifier):
-    return hashlib.sha256(f"{identifier}{time.time()}".encode()).hexdigest()[:32]
-
-# Check browser query param for session token (stored in URL on first login)
-_qt = st.query_params.get("s", "")
-if _qt and "user" not in st.session_state:
-    _sess_user = get_session_user(_qt)
-    if _sess_user and _sess_user.get("name") and _sess_user.get("education"):
-        st.session_state["user"]          = _sess_user
-        st.session_state["bot_nickname"]  = _sess_user.get("bot_nickname","Aria")
-        st.session_state["language"]      = _sess_user.get("language","English")
-        st.session_state["session_token"] = _qt
-        st.session_state["page"]          = "app"
-
-# Defaults — only set if key missing
+# Defaults — only set if key missing (preserves page="login" set by logout)
 _defaults = {
     "page": "login",
     "otp_sent": False,
     "otp_code": "",
     "otp_email": "",
-    "otp_phone": "",
-    "login_method": "",
     "user": None,
     "bot_nickname": "",
     "chat_history": [],
     "language": "English",
-    "session_token": "",
 }
 for _k, _v in _defaults.items():
     if _k not in st.session_state:
@@ -510,10 +438,14 @@ for _k, _v in _defaults.items():
 # PAGE: LOGIN
 # ══════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════
+# PAGE: LOGIN  (replace your existing login block with this)
+# ══════════════════════════════════════════════════════════
+
 if st.session_state.page == "login":
 
-    # Reset state if coming fresh
-    if not st.session_state.otp_email and not st.session_state.otp_phone:
+    # ── Reset state when arriving fresh ──────────────────
+    if not st.session_state.get("otp_email") and not st.session_state.get("otp_phone"):
         st.session_state.otp_sent     = False
         st.session_state.otp_code     = ""
         st.session_state.login_method = ""
@@ -530,19 +462,34 @@ if st.session_state.page == "login":
 
         st.markdown("---")
 
-        # ── STEP 1: Choose method ─────────────────────────
+        # ── STEP 1: Choose login method ───────────────────
         if not st.session_state.login_method and not st.session_state.otp_sent:
             st.markdown("##### 👋 Sign in to continue")
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+            # FIX: use on_click callbacks instead of if st.button()
+            def choose_email():
+                st.session_state.login_method = "email"
+
+            def choose_phone():
+                st.session_state.login_method = "phone"
+
             col_e, col_p = st.columns(2)
             with col_e:
-                if st.button("📧 Continue with Email", key="choose_email", use_container_width=True):
-                    st.session_state.login_method = "email"
-                    st.rerun()
+                st.button(
+                    "📧 Continue with Email",
+                    key="choose_email",
+                    on_click=choose_email,
+                    use_container_width=True
+                )
             with col_p:
-                if st.button("📱 Continue with Phone", key="choose_phone", use_container_width=True):
-                    st.session_state.login_method = "phone"
-                    st.rerun()
+                st.button(
+                    "📱 Continue with Phone",
+                    key="choose_phone",
+                    on_click=choose_phone,
+                    use_container_width=True
+                )
+
             st.markdown("""
             <div style="text-align:center;margin-top:2rem;color:#2a3040;font-size:0.8rem;">
                 🔒 Secure OTP login · No password needed · Free forever
@@ -551,15 +498,23 @@ if st.session_state.page == "login":
         # ── STEP 2a: Email — enter address ────────────────
         elif st.session_state.login_method == "email" and not st.session_state.otp_sent:
             st.markdown("##### 📧 Sign in with Email OTP")
-            if st.button("← Back", key="back_email"):
+
+            def go_back():
                 st.session_state.login_method = ""
-                st.rerun()
+
+            st.button("← Back", key="back_email", on_click=go_back)
             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
             with st.form("email_form", clear_on_submit=False):
-                email_input = st.text_input("Email Address", placeholder="you@example.com",
-                                             label_visibility="collapsed")
+                email_input = st.text_input(
+                    "Email Address",
+                    placeholder="you@example.com",
+                    label_visibility="collapsed"
+                )
                 submitted = st.form_submit_button("📨 Send OTP →", use_container_width=True)
+
             st.markdown('<div class="enter-hint">⌨️ Press Enter or click the button</div>', unsafe_allow_html=True)
+
             if submitted:
                 _e = email_input.strip()
                 if _e and "@" in _e and "." in _e:
@@ -578,17 +533,25 @@ if st.session_state.page == "login":
         # ── STEP 2b: Phone — enter number ─────────────────
         elif st.session_state.login_method == "phone" and not st.session_state.otp_sent:
             st.markdown("##### 📱 Sign in with Phone OTP")
-            if st.button("← Back", key="back_phone"):
+
+            def go_back_phone():
                 st.session_state.login_method = ""
-                st.rerun()
+
+            st.button("← Back", key="back_phone", on_click=go_back_phone)
             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
             with st.form("phone_form", clear_on_submit=False):
-                phone_input = st.text_input("Phone Number", placeholder="+91 9876543210",
-                                             label_visibility="collapsed")
+                phone_input = st.text_input(
+                    "Phone Number",
+                    placeholder="+91 9876543210",
+                    label_visibility="collapsed"
+                )
                 submitted_ph = st.form_submit_button("📨 Send OTP →", use_container_width=True)
+
             st.markdown('<div class="enter-hint">⌨️ Press Enter or click the button</div>', unsafe_allow_html=True)
+
             if submitted_ph:
-                _ph = phone_input.strip().replace(" ","").replace("-","")
+                _ph = phone_input.strip().replace(" ", "").replace("-", "")
                 if len(_ph) >= 10:
                     with st.spinner("Sending OTP to your phone..."):
                         otp = str(random.randint(100000, 999999))
@@ -599,16 +562,17 @@ if st.session_state.page == "login":
                         st.session_state.otp_phone = _ph
                         st.rerun()
                     elif mode == "no_key":
-                        st.error("❌ Fast2SMS API key not configured in Streamlit secrets. Add FAST2SMS_KEY.")
+                        st.error("❌ Fast2SMS key not configured. Add FAST2SMS_KEY to Streamlit secrets.")
                     else:
                         st.error(f"❌ Could not send OTP: {mode}. Try email instead.")
                 else:
                     st.error("❌ Enter a valid phone number (min 10 digits).")
 
-        # ── STEP 3: Enter OTP (same for email and phone) ──
+        # ── STEP 3: Enter OTP ──────────────────────────────
         elif st.session_state.otp_sent:
-            _identifier  = st.session_state.otp_email or st.session_state.otp_phone
-            _is_email    = bool(st.session_state.otp_email)
+            _identifier = st.session_state.otp_email or st.session_state.otp_phone
+            _is_email   = bool(st.session_state.otp_email)
+
             st.markdown(f"""
             <div class="otp-box">
                 <p>OTP sent to <strong>{_identifier}</strong></p>
@@ -619,9 +583,14 @@ if st.session_state.page == "login":
             """, unsafe_allow_html=True)
 
             st.markdown('<div class="enter-hint">⌨️ Enter OTP and press Enter</div>', unsafe_allow_html=True)
+
             with st.form("otp_form", clear_on_submit=False):
-                otp_input = st.text_input("Enter 6-digit OTP", placeholder="e.g. 482910",
-                                           max_chars=6, label_visibility="collapsed")
+                otp_input = st.text_input(
+                    "Enter 6-digit OTP",
+                    placeholder="e.g. 482910",
+                    max_chars=6,
+                    label_visibility="collapsed"
+                )
                 col_v, col_rs = st.columns(2)
                 with col_v:
                     verify = st.form_submit_button("✅ Verify & Login", use_container_width=True)
@@ -634,25 +603,29 @@ if st.session_state.page == "login":
                     st.session_state.otp_code = ""
                     _id    = st.session_state.otp_email or st.session_state.otp_phone
                     _saved = get_user(_id) or {}
-                    _has   = bool(_saved.get("name") and _saved.get("education") and _saved.get("job_target"))
+                    _has   = bool(
+                        _saved.get("name") and
+                        _saved.get("education") and
+                        _saved.get("job_target")
+                    )
                     if _has:
-                        # ✅ Returning user — straight to app, no questions asked
+                        # Returning user — straight to app
                         st.session_state.user = {
                             "email":      _id,
                             "name":       _saved["name"],
                             "education":  _saved["education"],
                             "job_target": _saved["job_target"],
-                            "purpose":    _saved.get("purpose",""),
+                            "purpose":    _saved.get("purpose", ""),
                         }
-                        st.session_state.bot_nickname = _saved.get("bot_nickname","Aria")
-                        st.session_state.language     = _saved.get("language","English")
+                        st.session_state.bot_nickname = _saved.get("bot_nickname", "Aria")
+                        st.session_state.language     = _saved.get("language", "English")
                         _tok = _make_token(_id)
                         save_session_token(_id, _tok)
                         st.session_state.session_token = _tok
                         st.query_params["s"] = _tok
                         st.session_state.page = "app"
                     else:
-                        # 🆕 New user — profile page once only
+                        # New user — profile page
                         st.session_state.page = "profile"
                     st.rerun()
                 else:
@@ -666,6 +639,8 @@ if st.session_state.page == "login":
                     if ok:
                         st.session_state.otp_code = otp
                         st.success("✅ New OTP sent to your inbox!")
+                    else:
+                        st.error("❌ Failed to resend. Check email settings.")
                 else:
                     ok, mode = send_phone_otp(_id, otp)
                     if ok:
@@ -679,6 +654,7 @@ if st.session_state.page == "login":
             🔒 Secure login · No password needed · Free to use
         </div>
         """, unsafe_allow_html=True)
+
     st.stop()
 
 
@@ -687,58 +663,70 @@ if st.session_state.page == "login":
 # ══════════════════════════════════════════════════════════
 
 if st.session_state.page == "profile":
-    # This page is shown ONLY ONCE — first time user logs in
-    _id    = st.session_state.get("otp_email") or st.session_state.get("otp_phone","")
-    _saved = {}  # Always blank — first time only
 
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        st.markdown("""
-        <div style="height:30px"></div>
-        <div style="text-align:center;font-size:3rem;margin-bottom:0.5rem;">👤</div>
-        <div class="profile-title">One last step!</div>
-        <div class="profile-sub">Tell us about yourself — we only ask this once.</div>
-        <div style="height:10px"></div>
-        <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Profile Setup</span></div>
-        <div style="height:16px"></div>
-        """, unsafe_allow_html=True)
+        # Check if returning user (has saved data in Firebase)
+        _otp_email = st.session_state.get("otp_email", "")
+        _saved = get_user(_otp_email) or {} if _otp_email else {}
+        _is_returning = bool(_saved.get("name") and _saved.get("education") and _saved.get("job_target"))
 
-        st.markdown(f"**✅ Verified:** `{_id}`")
+        if _is_returning:
+            st.markdown("""
+            <div style="height:30px"></div>
+            <div style="text-align:center;font-size:3rem;margin-bottom:0.5rem;">👋</div>
+            <div class="profile-title">Welcome back!</div>
+            <div class="profile-sub">Confirm or update your details to continue</div>
+            <div style="height:10px"></div>
+            <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Confirm Details</span></div>
+            <div style="height:16px"></div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="height:30px"></div>
+            <div style="text-align:center;font-size:3rem;margin-bottom:0.5rem;">👤</div>
+            <div class="profile-title">Almost there!</div>
+            <div class="profile-sub">Tell us about yourself to personalize your experience</div>
+            <div style="height:10px"></div>
+            <div style="text-align:center"><span class="step-badge">Step 2 of 2 — Profile Setup</span></div>
+            <div style="height:16px"></div>
+            """, unsafe_allow_html=True)
+
+        st.markdown(f"**📧 Logged in as:** `{_otp_email}`")
         st.markdown("---")
 
         with st.form("profile_form", clear_on_submit=False):
-            name       = st.text_input("👤 Full Name",          placeholder="e.g. Priya Sharma")
-            education  = st.text_input("🎓 Education / Degree", placeholder="e.g. B.Tech Computer Science")
-            job_target = st.text_input("🎯 Target Job Role",    placeholder="e.g. Data Scientist, SDE, Product Manager")
+            name       = st.text_input("👤 Full Name",          value=_saved.get("name",""),       placeholder="e.g. Priya Sharma")
+            education  = st.text_input("🎓 Education / Degree", value=_saved.get("education",""),  placeholder="e.g. B.Tech Computer Science")
+            job_target = st.text_input("🎯 Target Job Role",    value=_saved.get("job_target",""), placeholder="e.g. Data Scientist, SDE, Product Manager")
 
-            purpose_options = ["Campus Placement","Internship","Full-time Job","Career Switch","Higher Studies","Freelance / Gig Work"]
-            purpose = st.selectbox("📌 Why are you using this app?", purpose_options)
+            purpose_options = ["Campus Placement", "Internship", "Full-time Job", "Career Switch", "Higher Studies", "Freelance / Gig Work"]
+            saved_purpose   = _saved.get("purpose", "Campus Placement")
+            purpose_index   = purpose_options.index(saved_purpose) if saved_purpose in purpose_options else 0
+            purpose = st.selectbox("📌 Why are you using this app?", purpose_options, index=purpose_index)
 
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            submitted_profile = st.form_submit_button("🚀 Save & Continue →", use_container_width=True)
+            btn_label = "✅ Confirm & Enter App" if _is_returning else "🚀 Complete Setup & Continue"
+            submitted_profile = st.form_submit_button(btn_label, use_container_width=True)
 
         if submitted_profile:
-            if name.strip() and education.strip() and job_target.strip():
-                create_user(_id, name.strip(), job_target.strip(), education.strip(), purpose)
+            if name and education and job_target:
+                create_user(_otp_email, name, job_target, education, purpose)
                 st.session_state.user = {
-                    "email":      _id,
-                    "name":       name.strip(),
-                    "education":  education.strip(),
-                    "job_target": job_target.strip(),
-                    "purpose":    purpose
+                    "email": _otp_email, "name": name,
+                    "education": education, "job_target": job_target, "purpose": purpose
                 }
+                # Load saved nickname if exists
+                if not st.session_state.bot_nickname:
+                    st.session_state.bot_nickname = _saved.get("bot_nickname", "")
                 if not st.session_state.bot_nickname:
                     st.session_state.page = "nickname"
                 else:
-                    # Save session token for persistence
-                    _tok = _make_token(_id)
-                    save_session_token(_id, _tok)
-                    st.session_state.session_token = _tok
-                    st.query_params["s"] = _tok
                     st.session_state.page = "app"
                 st.rerun()
             else:
                 st.error("❌ Please fill in all fields to continue.")
+
     st.stop()
 
 
@@ -788,17 +776,17 @@ if st.session_state.page == "nickname":
             with col_b:
                 skip_name = st.form_submit_button("⏭️ Skip (Use 'Aria')", use_container_width=True)
 
-        if set_name or skip_name:
-            final_nick = (nickname.strip() if nickname.strip() else "Aria") if set_name else "Aria"
+        if set_name:
+            final_nick = nickname.strip() if nickname.strip() else "Aria"
             st.session_state.bot_nickname = final_nick
-            _uid = st.session_state.user.get("email","") if st.session_state.user else ""
-            if _uid:
-                db.collection("users").document(_uid).update({"bot_nickname": final_nick})
-            # Save session token for app-reopen persistence
-            _tok = _make_token(_uid or "user")
-            save_session_token(_uid, _tok)
-            st.session_state.session_token = _tok
-            st.query_params["s"] = _tok
+            if st.session_state.user:
+                db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": final_nick})
+            st.session_state.page = "app"
+            st.rerun()
+        if skip_name:
+            st.session_state.bot_nickname = "Aria"
+            if st.session_state.user:
+                db.collection("users").document(st.session_state.user["email"]).update({"bot_nickname": "Aria"})
             st.session_state.page = "app"
             st.rerun()
 
@@ -808,8 +796,6 @@ user = st.session_state.get("user") or {}
 
 if not user:
     # Not logged in — force back to login page cleanly
-    delete_session_token(st.session_state.get("session_token",""))
-    st.query_params.clear()
     st.session_state.clear()
     st.session_state.page = "login"
     st.rerun()
@@ -863,8 +849,6 @@ with st.sidebar:
         st.rerun()
 
     if st.button("🚪 Logout", key="logout_btn"):
-        delete_session_token(st.session_state.get("session_token",""))
-        st.query_params.clear()
         st.session_state.clear()
         st.session_state.page = "login"
         st.rerun()
@@ -893,8 +877,6 @@ if st.session_state.page == "settings":
             st.session_state.page = "app"
             st.rerun()
         if st.button("🚪 Logout", key="settings_logout"):
-            delete_session_token(st.session_state.get("session_token",""))
-            st.query_params.clear()
             st.session_state.clear()
             st.session_state.page = "login"
             st.rerun()
@@ -1000,8 +982,6 @@ if st.session_state.page == "settings":
         # ── Danger Zone ───────────────────────────────────
         st.markdown("""<div class="section-title" style="border-left-color:#ff4444;color:#ff4444">⚠️ Session</div>""", unsafe_allow_html=True)
         if st.button("🚪 Logout & Clear Session", key="settings_logout_main"):
-            delete_session_token(st.session_state.get("session_token",""))
-            st.query_params.clear()
             st.session_state.clear()
             st.session_state.page = "login"
             st.rerun()
