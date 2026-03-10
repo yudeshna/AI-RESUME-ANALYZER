@@ -418,12 +418,20 @@ def render_ai_analysis(raw_text):
 # SESSION STATE INIT
 # ══════════════════════════════════════════════════════════
 
-for key, val in [
-    ("page","login"),("otp_sent",False),("otp_code",""),("otp_email",""),
-    ("user",None),("bot_nickname",""),("chat_history",[]),("language","English")
-]:
-    if key not in st.session_state:
-        st.session_state[key] = val
+# Defaults — only set if key missing (preserves page="login" set by logout)
+_defaults = {
+    "page": "login",
+    "otp_sent": False,
+    "otp_code": "",
+    "otp_email": "",
+    "user": None,
+    "bot_nickname": "",
+    "chat_history": [],
+    "language": "English",
+}
+for _k, _v in _defaults.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
 
 
 # ══════════════════════════════════════════════════════════
@@ -493,19 +501,21 @@ if st.session_state.page == "login":
                 if otp_input.strip() == st.session_state.otp_code:
                     st.session_state.otp_sent = False
                     st.session_state.otp_code = ""
-                    existing_user = get_user(st.session_state.otp_email) or {}
-                    if existing_user.get("name") and existing_user.get("education") and existing_user.get("job_target"):
+                    _email = st.session_state.otp_email
+                    _saved = get_user(_email) or {}
+                    if _saved.get("name") and _saved.get("education") and _saved.get("job_target"):
+                        # ✅ Returning user — load everything, skip profile & nickname
                         st.session_state.user = {
-                            "email": st.session_state.otp_email,
-                            "name": existing_user["name"],
-                            "education": existing_user["education"],
-                            "job_target": existing_user["job_target"],
-                            "purpose": existing_user.get("purpose", "")
+                            "email": _email,
+                            "name":  _saved["name"],
+                            "education":  _saved["education"],
+                            "job_target": _saved["job_target"],
+                            "purpose":    _saved.get("purpose", ""),
                         }
-                        if not st.session_state.bot_nickname:
-                            st.session_state.bot_nickname = existing_user.get("bot_nickname", "Aria")
+                        st.session_state.bot_nickname = _saved.get("bot_nickname", "Aria")
                         st.session_state.page = "app"
                     else:
+                        # 🆕 New user — go to profile setup
                         st.session_state.page = "profile"
                     st.rerun()
                 else:
@@ -650,6 +660,8 @@ if st.session_state.page == "nickname":
 user = st.session_state.get("user") or {}
 
 if not user:
+    # Not logged in — force back to login page cleanly
+    st.session_state.clear()
     st.session_state.page = "login"
     st.rerun()
 
@@ -702,9 +714,7 @@ with st.sidebar:
         st.rerun()
 
     if st.button("🚪 Logout", key="logout_btn"):
-        keys_to_keep = []
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
+        st.session_state.clear()
         st.session_state.page = "login"
         st.rerun()
 
@@ -732,8 +742,7 @@ if st.session_state.page == "settings":
             st.session_state.page = "app"
             st.rerun()
         if st.button("🚪 Logout", key="settings_logout"):
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
+            st.session_state.clear()
             st.session_state.page = "login"
             st.rerun()
 
@@ -838,8 +847,7 @@ if st.session_state.page == "settings":
         # ── Danger Zone ───────────────────────────────────
         st.markdown("""<div class="section-title" style="border-left-color:#ff4444;color:#ff4444">⚠️ Session</div>""", unsafe_allow_html=True)
         if st.button("🚪 Logout & Clear Session", key="settings_logout_main"):
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
+            st.session_state.clear()
             st.session_state.page = "login"
             st.rerun()
 
