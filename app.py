@@ -334,33 +334,47 @@ def send_otp_email(to_email, otp):
 
 
 def send_phone_otp(phone, otp):
-    """Send OTP via Fast2SMS using GET request (correct format)"""
+    """Send OTP via Fast2SMS — OTP route with variables"""
     try:
         import urllib.request, urllib.parse, json as _json
         api_key = st.secrets.get("FAST2SMS_KEY", "")
         if not api_key:
             return False, "no_key"
-        # Strip to last 10 digits
-        number = phone.strip().replace("+91","").replace(" ","").replace("-","")
+
+        # Clean number — extract last 10 digits
+        number = phone.strip().replace("+91","").replace(" ","").replace("-","").replace("(","").replace(")","")
         if number.startswith("91") and len(number) == 12:
             number = number[2:]
         number = number[-10:]
-        # Fast2SMS Quick SMS route (works without DLT registration)
-        params = urllib.parse.urlencode({
-            "authorization": api_key,
-            "route":         "q",
-            "message":       f"Your OTP for AI Resume Analyzer is {otp}. Valid for 10 minutes. Do not share.",
-            "language":      "english",
-            "flash":         0,
-            "numbers":       number,
-        })
-        url = f"https://www.fast2sms.com/dev/bulkV2?{params}"
-        req = urllib.request.Request(url, headers={"cache-control": "no-cache"})
-        res = urllib.request.urlopen(req, timeout=10)
-        result = _json.loads(res.read())
-        if result.get("return") == True:
+
+        if len(number) != 10 or not number.isdigit():
+            return False, "Invalid 10-digit number"
+
+        # Fast2SMS OTP route — sends via their default OTP template
+        # No DLT registration needed for this route
+        payload = _json.dumps({
+            "route":            "otp",
+            "variables_values": str(otp),
+            "numbers":          number,
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://www.fast2sms.com/dev/bulkV2",
+            data    = payload,
+            headers = {
+                "authorization": api_key,
+                "Content-Type":  "application/json",
+                "Accept":        "application/json",
+            },
+            method  = "POST"
+        )
+        res    = urllib.request.urlopen(req, timeout=10)
+        result = _json.loads(res.read().decode("utf-8"))
+
+        if result.get("return") is True:
             return True, "sms"
-        return False, result.get("message", "failed")
+        return False, str(result.get("message", result))
+
     except Exception as e:
         return False, str(e)
 
