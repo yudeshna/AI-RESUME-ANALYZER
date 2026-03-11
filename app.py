@@ -475,40 +475,44 @@ def render_ai_analysis(raw_text):
 # SESSION STATE INIT
 # ══════════════════════════════════════════════════════════
 
-# ── Persistent session check (app reopen without login) ──
 import hashlib, time
 
 def _make_token(identifier):
     return hashlib.sha256(f"{identifier}{time.time()}".encode()).hexdigest()[:32]
 
-# Check browser query param for session token (stored in URL on first login)
-_qt = st.query_params.get("s", "")
-if _qt and "user" not in st.session_state:
-    _sess_user = get_session_user(_qt)
-    if _sess_user and _sess_user.get("name") and _sess_user.get("education"):
-        st.session_state["user"]          = _sess_user
-        st.session_state["bot_nickname"]  = _sess_user.get("bot_nickname","Aria")
-        st.session_state["language"]      = _sess_user.get("language","English")
-        st.session_state["session_token"] = _qt
-        st.session_state["page"]          = "app"
-
-# Defaults — only set if key missing
+# ── Set defaults FIRST (only if key not already present) ──
 _defaults = {
-    "page": "login",
-    "otp_sent": False,
-    "otp_code": "",
-    "otp_email": "",
-    "otp_phone": "",
-    "login_method": "",
-    "user": None,
-    "bot_nickname": "",
-    "chat_history": [],
-    "language": "English",
+    "page":          "login",
+    "otp_sent":      False,
+    "otp_code":      "",
+    "otp_email":     "",
+    "otp_phone":     "",
+    "login_method":  "",
+    "user":          None,
+    "bot_nickname":  "",
+    "chat_history":  [],
+    "language":      "English",
     "session_token": "",
 }
 for _k, _v in _defaults.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
+
+# ── Persistent session: check token ONLY once (when user is None) ──
+if st.session_state.user is None and st.session_state.page == "login":
+    _qt = st.query_params.get("s", "")
+    if _qt:
+        try:
+            _sess_user = get_session_user(_qt)
+            if _sess_user and _sess_user.get("name") and _sess_user.get("education"):
+                st.session_state.user          = _sess_user
+                st.session_state.bot_nickname  = _sess_user.get("bot_nickname", "Aria")
+                st.session_state.language      = _sess_user.get("language", "English")
+                st.session_state.session_token = _qt
+                st.session_state.page          = "app"
+                st.rerun()
+        except Exception:
+            pass  # bad token — stay on login page
 
 
 # ══════════════════════════════════════════════════════════
@@ -516,12 +520,6 @@ for _k, _v in _defaults.items():
 # ══════════════════════════════════════════════════════════
 
 if st.session_state.page == "login":
-
-    # Reset state if coming fresh
-    if not st.session_state.otp_email and not st.session_state.otp_phone:
-        st.session_state.otp_sent     = False
-        st.session_state.otp_code     = ""
-        st.session_state.login_method = ""
 
     col_l, col_c, col_r = st.columns([1, 1.2, 1])
     with col_c:
