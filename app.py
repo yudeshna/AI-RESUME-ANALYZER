@@ -334,40 +334,42 @@ def send_otp_email(to_email, otp):
 
 
 def send_phone_otp(phone, otp):
-    """Send OTP via Fast2SMS — OTP route with variables"""
+    """Send OTP via Fast2SMS Quick SMS API (route q)"""
     try:
         import urllib.request, urllib.parse, urllib.error, json as _json
         api_key = st.secrets.get("FAST2SMS_KEY", "")
         if not api_key:
             return False, "no_key"
 
-        # Clean number — extract last 10 digits
-        number = phone.strip().replace("+91","").replace(" ","").replace("-","").replace("(","").replace(")","")
+        # Clean number — extract last 10 digits only
+        number = phone.strip()
+        for ch in ["+91", "+", " ", "-", "(", ")"]:
+            number = number.replace(ch, "")
         if number.startswith("91") and len(number) == 12:
             number = number[2:]
         number = number[-10:]
 
         if len(number) != 10 or not number.isdigit():
-            return False, "Invalid 10-digit number"
+            return False, "Invalid 10-digit Indian number"
 
-        # Fast2SMS OTP route — sends via their default OTP template
-        # No DLT registration needed for this route
-        payload = _json.dumps({
-            "route":            "otp",
-            "variables_values": str(otp),
-            "numbers":          number,
-        }).encode("utf-8")
+        # Use Quick SMS API — works immediately, no DLT needed
+        message = f"Your OTP for AI Resume Analyzer Pro is {otp}. Valid for 10 minutes. Do not share with anyone."
 
+        params = urllib.parse.urlencode({
+            "authorization": api_key,
+            "route":         "q",
+            "numbers":       number,
+            "message":       message,
+            "flash":         0,
+            "language":      "english",
+        })
+
+        url = f"https://www.fast2sms.com/dev/bulkV2?{params}"
         req = urllib.request.Request(
-            "https://www.fast2sms.com/dev/bulkV2",
-            data    = payload,
-            headers = {
-                "authorization": api_key,
-                "Content-Type":  "application/json",
-                "Accept":        "application/json",
-            },
-            method  = "POST"
+            url,
+            headers={"cache-control": "no-cache"}
         )
+
         try:
             res    = urllib.request.urlopen(req, timeout=10)
             result = _json.loads(res.read().decode("utf-8"))
