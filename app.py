@@ -602,39 +602,106 @@ if st.session_state.page == "profile":
         st.markdown(f"**✅ Logged in as:** `{_email}`")
         st.markdown("---")
 
-        with st.form("profile_form", clear_on_submit=False):
-            name       = st.text_input("👤 Full Name",          placeholder="e.g. Priya Sharma")
-            education  = st.text_input("🎓 Education / Degree", placeholder="e.g. B.Tech Computer Science")
-            job_target = st.text_input("🎯 Target Job Role",    placeholder="e.g. Data Scientist, SDE, Product Manager")
-            purpose_options = ["Campus Placement","Internship","Full-time Job","Career Switch","Higher Studies","Freelance / Gig Work"]
-            purpose = st.selectbox("📌 Why are you using this app?", purpose_options)
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            submitted_profile = st.form_submit_button("🚀 Save & Enter App →", use_container_width=True)
+        # ── Step-by-step field entry (Enter moves to next) ──
+        # Each field shown one at a time using session state steps
+        step = st.session_state.get("profile_step", 1)
 
-        if submitted_profile:
-            if name.strip() and education.strip() and job_target.strip():
-                # Save to Firebase
-                create_user(_email, name.strip(), job_target.strip(), education.strip(), purpose)
-                st.session_state.user = {
-                    "email":      _email,
-                    "name":       name.strip(),
-                    "education":  education.strip(),
-                    "job_target": job_target.strip(),
-                    "purpose":    purpose,
-                }
-                # Save session token so app reopen skips login
-                _tok = _make_token(_email)
-                save_session_token(_email, _tok)
-                st.session_state.session_token = _tok
-                st.query_params["s"] = _tok
-                # Go to nickname if not set, else straight to app
-                if not st.session_state.bot_nickname:
-                    st.session_state.page = "nickname"
+        purpose_options = ["Campus Placement","Internship","Full-time Job","Career Switch","Higher Studies","Freelance / Gig Work"]
+
+        # Progress bar
+        progress = step / 4
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,0.05);border-radius:8px;height:6px;margin-bottom:1.2rem;">
+            <div style="background:linear-gradient(90deg,#00d4ff,#7b2ff7);height:6px;border-radius:8px;width:{int(progress*100)}%;transition:width 0.4s;"></div>
+        </div>
+        <div style="text-align:right;font-size:0.75rem;color:#5a6478;margin-top:-0.8rem;margin-bottom:1rem;">Step {step} of 4</div>
+        """, unsafe_allow_html=True)
+
+        # ── Field 1: Name ──
+        if step == 1:
+            with st.form("form_name", clear_on_submit=False):
+                st.markdown("**👤 What's your full name?**")
+                name_val = st.text_input("Full Name", placeholder="e.g. Priya Sharma",
+                                          label_visibility="collapsed", key="pf_name")
+                go = st.form_submit_button("Continue →", use_container_width=True)
+            if go:
+                if name_val.strip():
+                    st.session_state["profile_step"] = 2
+                    st.session_state["pf_name_val"]  = name_val.strip()
+                    st.rerun()
                 else:
-                    st.session_state.page = "app"
+                    st.error("❌ Please enter your name.")
+
+        # ── Field 2: Education ──
+        elif step == 2:
+            with st.form("form_edu", clear_on_submit=False):
+                st.markdown(f"**Hi {st.session_state.get('pf_name_val','there')}! 🎓 What's your education?**")
+                edu_val = st.text_input("Education", placeholder="e.g. B.Tech Computer Science",
+                                         label_visibility="collapsed", key="pf_edu")
+                go = st.form_submit_button("Continue →", use_container_width=True)
+            if go:
+                if edu_val.strip():
+                    st.session_state["profile_step"] = 3
+                    st.session_state["pf_edu_val"]   = edu_val.strip()
+                    st.rerun()
+                else:
+                    st.error("❌ Please enter your education.")
+
+        # ── Field 3: Job Target ──
+        elif step == 3:
+            with st.form("form_job", clear_on_submit=False):
+                st.markdown("**🎯 What's your target job role?**")
+                job_val = st.text_input("Job Role", placeholder="e.g. Data Scientist, SDE, Product Manager",
+                                         label_visibility="collapsed", key="pf_job")
+                go = st.form_submit_button("Continue →", use_container_width=True)
+            if go:
+                if job_val.strip():
+                    st.session_state["profile_step"] = 4
+                    st.session_state["pf_job_val"]   = job_val.strip()
+                    st.rerun()
+                else:
+                    st.error("❌ Please enter your target role.")
+
+        # ── Field 4: Purpose + Submit ──
+        elif step == 4:
+            with st.form("form_purpose", clear_on_submit=False):
+                st.markdown("**📌 Why are you using this app?**")
+                purpose = st.selectbox("Purpose", purpose_options, label_visibility="collapsed")
+                submitted_profile = st.form_submit_button("🚀 Save & Enter App →", use_container_width=True)
+            if submitted_profile:
+                name       = st.session_state.get("pf_name_val", "")
+                education  = st.session_state.get("pf_edu_val", "")
+                job_target = st.session_state.get("pf_job_val", "")
+                if name and education and job_target:
+                    create_user(_email, name, job_target, education, purpose)
+                    st.session_state.user = {
+                        "email": _email, "name": name,
+                        "education": education, "job_target": job_target, "purpose": purpose,
+                    }
+                    # Clear step counter
+                    for k in ["profile_step","pf_name_val","pf_edu_val","pf_job_val"]:
+                        st.session_state.pop(k, None)
+                    # Save session token
+                    _tok = _make_token(_email)
+                    save_session_token(_email, _tok)
+                    st.session_state.session_token = _tok
+                    st.query_params["s"] = _tok
+                    st.session_state.page = "nickname" if not st.session_state.bot_nickname else "app"
+                    st.rerun()
+                else:
+                    st.error("❌ Something went wrong. Please start again.")
+                    st.session_state["profile_step"] = 1
+                    st.rerun()
+
+        # Back button (except step 1)
+        if step > 1:
+            if st.button("← Back", key=f"back_step_{step}"):
+                st.session_state["profile_step"] = step - 1
                 st.rerun()
-            else:
-                st.error("❌ Please fill in all fields to continue.")
+
+        submitted_profile = False  # prevent old submit logic from running
+
+
     st.stop()
 
 
