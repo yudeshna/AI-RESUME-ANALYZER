@@ -336,7 +336,7 @@ def send_otp_email(to_email, otp):
 def send_phone_otp(phone, otp):
     """Send OTP via Fast2SMS — OTP route with variables"""
     try:
-        import urllib.request, urllib.parse, json as _json
+        import urllib.request, urllib.parse, urllib.error, json as _json
         api_key = st.secrets.get("FAST2SMS_KEY", "")
         if not api_key:
             return False, "no_key"
@@ -368,12 +368,19 @@ def send_phone_otp(phone, otp):
             },
             method  = "POST"
         )
-        res    = urllib.request.urlopen(req, timeout=10)
-        result = _json.loads(res.read().decode("utf-8"))
-
-        if result.get("return") is True:
-            return True, "sms"
-        return False, str(result.get("message", result))
+        try:
+            res    = urllib.request.urlopen(req, timeout=10)
+            result = _json.loads(res.read().decode("utf-8"))
+            if result.get("return") is True:
+                return True, "sms"
+            return False, str(result.get("message", result))
+        except urllib.error.HTTPError as http_err:
+            body = http_err.read().decode("utf-8")
+            try:
+                err_json = _json.loads(body)
+                return False, f"Fast2SMS says: {err_json.get('message', body[:200])}"
+            except Exception:
+                return False, f"HTTP {http_err.code}: {body[:200]}"
 
     except Exception as e:
         return False, str(e)
