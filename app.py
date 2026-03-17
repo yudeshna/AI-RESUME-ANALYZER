@@ -464,8 +464,23 @@ for _k, _v in _defaults.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
-# ── Auto-login: if session token exists in URL, restore user ──
+# ── Auto-login: read token from localStorage (survives browser close) ──
 if st.session_state.user is None and st.session_state.page == "login":
+    # Inject JS to read localStorage token and put it in URL param
+    st.components.v1.html("""
+    <script>
+        const tok = localStorage.getItem("resume_analyzer_token");
+        if (tok) {
+            const url = new URL(window.parent.location.href);
+            if (!url.searchParams.get("s")) {
+                url.searchParams.set("s", tok);
+                window.parent.history.replaceState({}, "", url.toString());
+                window.parent.location.reload();
+            }
+        }
+    </script>
+    """, height=0)
+
     _qt = st.query_params.get("s", "")
     if _qt:
         try:
@@ -549,10 +564,41 @@ if st.session_state.page == "login":
 
             if verify:
                 if otp_input.strip() == st.session_state.otp_code:
-                    # OTP correct — always go to profile page to fill details
                     st.session_state.otp_sent = False
                     st.session_state.otp_code = ""
-                    st.session_state.page     = "profile"
+                    _email_id = st.session_state.otp_email
+                    # Check Firebase — does this user already have a profile?
+                    _saved = get_user(_email_id) or {}
+                    _has_profile = bool(
+                        _saved.get("name") and
+                        _saved.get("education") and
+                        _saved.get("job_target")
+                    )
+                    if _has_profile:
+                        # ✅ Returning user — load profile, skip details page, go straight to app
+                        st.session_state.user = {
+                            "email":      _email_id,
+                            "name":       _saved["name"],
+                            "education":  _saved["education"],
+                            "job_target": _saved["job_target"],
+                            "purpose":    _saved.get("purpose", ""),
+                        }
+                        st.session_state.bot_nickname = _saved.get("bot_nickname", "Aria")
+                        st.session_state.language     = _saved.get("language", "English")
+                        # Save session token to Firebase + localStorage
+                        _tok = _make_token(_email_id)
+                        save_session_token(_email_id, _tok)
+                        st.session_state.session_token = _tok
+                        st.query_params["s"] = _tok
+                        st.components.v1.html(f"""
+                        <script>
+                            localStorage.setItem("resume_analyzer_token", "{_tok}");
+                        </script>
+                        """, height=0)
+                        st.session_state.page = "app"
+                    else:
+                        # 🆕 New user — go fill profile (first time only)
+                        st.session_state.page = "profile"
                     st.rerun()
                 else:
                     st.error("❌ Wrong OTP. Try again.")
@@ -686,6 +732,12 @@ if st.session_state.page == "profile":
                     save_session_token(_email, _tok)
                     st.session_state.session_token = _tok
                     st.query_params["s"] = _tok
+                    # Write token to localStorage so it survives browser close
+                    st.components.v1.html(f"""
+                    <script>
+                        localStorage.setItem("resume_analyzer_token", "{_tok}");
+                    </script>
+                    """, height=0)
                     st.session_state.page = "nickname" if not st.session_state.bot_nickname else "app"
                     st.rerun()
                 else:
@@ -762,6 +814,11 @@ if st.session_state.page == "nickname":
             save_session_token(_uid, _tok)
             st.session_state.session_token = _tok
             st.query_params["s"] = _tok
+            st.components.v1.html(f"""
+            <script>
+                localStorage.setItem("resume_analyzer_token", "{_tok}");
+            </script>
+            """, height=0)
             st.session_state.page = "app"
             st.rerun()
 
@@ -828,6 +885,9 @@ with st.sidebar:
     if st.button("🚪 Logout", key="logout_btn"):
         delete_session_token(st.session_state.get("session_token",""))
         st.query_params.clear()
+        st.components.v1.html("""
+        <script>localStorage.removeItem("resume_analyzer_token");</script>
+        """, height=0)
         st.session_state.clear()
         st.session_state.page = "login"
         st.rerun()
@@ -858,6 +918,7 @@ if st.session_state.page == "settings":
         if st.button("🚪 Logout", key="settings_logout"):
             delete_session_token(st.session_state.get("session_token",""))
             st.query_params.clear()
+            st.components.v1.html("""<script>localStorage.removeItem("resume_analyzer_token");</script>""", height=0)
             st.session_state.clear()
             st.session_state.page = "login"
             st.rerun()
@@ -965,6 +1026,7 @@ if st.session_state.page == "settings":
         if st.button("🚪 Logout & Clear Session", key="settings_logout_main"):
             delete_session_token(st.session_state.get("session_token",""))
             st.query_params.clear()
+            st.components.v1.html("""<script>localStorage.removeItem("resume_analyzer_token");</script>""", height=0)
             st.session_state.clear()
             st.session_state.page = "login"
             st.rerun()
