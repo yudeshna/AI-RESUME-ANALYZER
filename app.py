@@ -1622,7 +1622,7 @@ with tab5:
                 st.error("❌ Please enter a job role first.")
             else:
                 with st.spinner(f"🤖 Generating {diff} questions for {sel_job.strip()}..."):
-                    qs = generate_interview_questions(st.session_state['skills'], f"{diff} {sel_job.strip()}")
+                    qs = generate_interview_questions(st.session_state['skills'], sel_job.strip(), diff)
                     st.session_state['questions']    = qs
                     st.session_state['selected_job'] = sel_job.strip()
         if 'questions' in st.session_state:

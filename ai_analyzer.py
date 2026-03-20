@@ -110,8 +110,25 @@ Resume Text:
     return _chat(prompt, temperature=0.1)
 
 
-def generate_interview_questions(skills, job_title):
+def generate_interview_questions(skills, job_title, difficulty="Entry Level"):
     skills_str = ", ".join(skills[:15]) if skills else "general"
+
+    # Map difficulty to clear instructions
+    diff_map = {
+        "Entry Level": {
+            "label": "Entry Level (0-1 years experience, fresher)",
+            "instruction": "Questions must be BASIC and FUNDAMENTAL. Assume the candidate is a fresher with no work experience. Ask about core concepts, definitions, and simple scenarios. Avoid advanced system design or complex case studies."
+        },
+        "Mid Level": {
+            "label": "Mid Level (2-4 years experience)",
+            "instruction": "Questions must be INTERMEDIATE. Assume the candidate has 2-4 years of work experience. Ask about practical application, problem-solving, trade-offs, and some leadership scenarios. Mix of concepts and real-world application."
+        },
+        "Senior Level": {
+            "label": "Senior Level (5+ years experience)",
+            "instruction": "Questions must be ADVANCED and COMPLEX. Assume the candidate is a senior professional. Ask about architecture decisions, leadership challenges, complex problem-solving, strategic thinking, and mentoring others."
+        }
+    }
+    diff_info = diff_map.get(difficulty, diff_map["Entry Level"])
 
     # Detect domain to tailor questions correctly
     job_lower = job_title.lower()
@@ -152,53 +169,57 @@ Questions must be directly relevant to these skills and this specific role."""
 
 {domain_context}
 
-Generate exactly 12 highly relevant interview questions for a {job_title} position.
+DIFFICULTY LEVEL: {diff_info["label"]}
+{diff_info["instruction"]}
+
+Generate exactly 12 highly relevant interview questions for a {difficulty} {job_title} position.
 
 STRICT RULES:
+- Every question must match the {difficulty} difficulty level EXACTLY
 - Every question must be 100% relevant to {job_title} — no off-topic questions
 - Questions must match the actual domain (govt exam = GK/polity, medical = clinical, tech = coding/systems)
-- Include difficulty level for each question
+- Entry Level = basic concepts only, Mid Level = practical application, Senior Level = advanced/strategic
 - Include what a GOOD answer should cover
 
 Format EXACTLY like this (NO difficulty labels inside questions):
 
 TECHNICAL QUESTIONS:
-1. [Specific question relevant to {job_title}]
+1. [{difficulty}-appropriate question for {job_title}]
    → Good answer covers: [2-3 key points]
 
-2. [Specific question relevant to {job_title}]
+2. [{difficulty}-appropriate question for {job_title}]
    → Good answer covers: [2-3 key points]
 
-3. [Specific question relevant to {job_title}]
+3. [{difficulty}-appropriate question for {job_title}]
    → Good answer covers: [2-3 key points]
 
-4. [Specific question relevant to {job_title}]
+4. [{difficulty}-appropriate question for {job_title}]
    → Good answer covers: [2-3 key points]
 
-5. [Specific question relevant to {job_title}]
+5. [{difficulty}-appropriate question for {job_title}]
    → Good answer covers: [2-3 key points]
 
-6. [Specific question relevant to {job_title}]
+6. [{difficulty}-appropriate question for {job_title}]
    → Good answer covers: [2-3 key points]
 
 BEHAVIORAL QUESTIONS:
-7. [Behavioral question specific to {job_title} work environment]
+7. [{difficulty}-level behavioral question for {job_title}]
    → Good answer covers: [2-3 key points]
 
-8. [Behavioral question specific to {job_title}]
+8. [{difficulty}-level behavioral question for {job_title}]
    → Good answer covers: [2-3 key points]
 
-9. [Behavioral question specific to {job_title}]
+9. [{difficulty}-level behavioral question for {job_title}]
    → Good answer covers: [2-3 key points]
 
 SITUATIONAL / CASE QUESTIONS:
-10. [Real scenario a {job_title} would actually face]
+10. [{difficulty}-level real scenario for {job_title}]
     → Good answer covers: [2-3 key points]
 
-11. [Real scenario a {job_title} would actually face]
+11. [{difficulty}-level real scenario for {job_title}]
     → Good answer covers: [2-3 key points]
 
-12. [Role-specific problem for {job_title}]
+12. [{difficulty}-level problem-solving question for {job_title}]
     → Good answer covers: [2-3 key points]
 """
     return _chat(prompt, temperature=0.3)
