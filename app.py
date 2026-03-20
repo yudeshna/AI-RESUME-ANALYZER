@@ -1597,13 +1597,17 @@ with tab5:
 
         c1, c2 = st.columns(2)
         with c1:
-            # Searchable dropdown with all 100+ jobs
-            sel_job = st.selectbox(
-                "Select or Search Job Role",
-                ALL_JOBS,
-                index=ALL_JOBS.index("Data Scientist") if "Data Scientist" in ALL_JOBS else 0,
-                help="Type to search any job role"
+            # Free text input — type ANY job role
+            sel_job = st.text_input(
+                "Type Any Job Role",
+                placeholder="e.g. Pharmacist, IAS Officer, Data Scientist, Chef...",
+                help="Type any job role — even if not in the list, AI will generate questions for it"
             )
+            # Show suggestions from dataset as helper
+            if sel_job:
+                matches = [j for j in ALL_JOBS if sel_job.lower() in j.lower()][:5]
+                if matches:
+                    st.caption("💡 Suggestions: " + " · ".join(matches))
         with c2:
             st.markdown("**Difficulty**")
             diff = st.radio(
@@ -1613,10 +1617,13 @@ with tab5:
                 label_visibility="collapsed"
             )
         if st.button("🎯 Generate Questions", key="interview_btn"):
-            with st.spinner("🤖 Generating..."):
-                qs = generate_interview_questions(st.session_state['skills'], f"{diff} {sel_job}")
-                st.session_state['questions']    = qs
-                st.session_state['selected_job'] = sel_job
+            if not sel_job.strip():
+                st.error("❌ Please enter a job role first.")
+            else:
+                with st.spinner(f"🤖 Generating {diff} questions for {sel_job.strip()}..."):
+                    qs = generate_interview_questions(st.session_state['skills'], f"{diff} {sel_job.strip()}")
+                    st.session_state['questions']    = qs
+                    st.session_state['selected_job'] = sel_job.strip()
         if 'questions' in st.session_state:
             raw_q = st.session_state["questions"]
             st.markdown(f'''
