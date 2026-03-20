@@ -1527,10 +1527,83 @@ with tab5:
     if 'skills' not in st.session_state:
         st.info("👆 Please analyze your resume first!")
     else:
-        c1,c2 = st.columns(2)
+        # ── Full job dataset — 100+ roles across all domains ──
+        ALL_JOBS = sorted([
+            # Tech & Software
+            "Software Engineer", "Frontend Developer", "Backend Developer",
+            "Full Stack Developer", "Mobile App Developer", "Android Developer",
+            "iOS Developer", "Flutter Developer", "React Developer",
+            "Node.js Developer", "Python Developer", "Java Developer",
+            "C++ Developer", "Embedded Systems Engineer", "Game Developer",
+            "Blockchain Developer", "AR/VR Developer", "WordPress Developer",
+            # Data & AI
+            "Data Scientist", "Data Analyst", "Data Engineer",
+            "Machine Learning Engineer", "AI Engineer", "NLP Engineer",
+            "Computer Vision Engineer", "Deep Learning Engineer",
+            "Business Intelligence Analyst", "Big Data Engineer",
+            "MLOps Engineer", "AI Research Scientist", "Prompt Engineer",
+            # Cloud & DevOps
+            "DevOps Engineer", "Cloud Engineer", "AWS Solutions Architect",
+            "Azure Engineer", "GCP Engineer", "Site Reliability Engineer",
+            "Kubernetes Engineer", "Docker Specialist", "Infrastructure Engineer",
+            "Network Engineer", "Linux System Administrator",
+            # Cybersecurity
+            "Cybersecurity Analyst", "Ethical Hacker", "Penetration Tester",
+            "Security Engineer", "SOC Analyst", "Information Security Manager",
+            "Cloud Security Engineer", "Forensics Analyst",
+            # Business & Management
+            "Business Analyst", "Product Manager", "Project Manager",
+            "Scrum Master", "Agile Coach", "Operations Manager",
+            "Supply Chain Manager", "Logistics Manager", "HR Manager",
+            "Talent Acquisition Specialist", "Training & Development Manager",
+            # Finance & Banking
+            "Financial Analyst", "Investment Banker", "Risk Analyst",
+            "Credit Analyst", "Chartered Accountant", "Tax Consultant",
+            "Actuary", "Quantitative Analyst", "Forex Trader",
+            "Banking Officer", "Insurance Analyst", "Audit Manager",
+            # Marketing & Sales
+            "Digital Marketing Manager", "SEO Specialist", "Content Writer",
+            "Social Media Manager", "Brand Manager", "Growth Hacker",
+            "Email Marketing Specialist", "Copywriter", "Sales Manager",
+            "Business Development Manager", "CRM Specialist",
+            # Design & Creative
+            "UI/UX Designer", "Graphic Designer", "Product Designer",
+            "Motion Designer", "Video Editor", "Animator",
+            "3D Modeller", "Illustrator", "Creative Director",
+            # Government & PSU
+            "IAS Officer", "IPS Officer", "IRS Officer",
+            "UPSC Civil Services", "SSC CGL", "Bank PO",
+            "Railway Engineer", "Defence Officer", "PSU Engineer",
+            "Government Teacher", "Municipal Engineer", "Public Health Officer",
+            # Healthcare
+            "Doctor (MBBS)", "Software Developer - Healthcare", "Clinical Data Analyst",
+            "Hospital Administrator", "Pharmacist", "Medical Coder",
+            "Health Informatics Specialist", "Biomedical Engineer",
+            # Education
+            "Professor", "School Teacher", "Corporate Trainer",
+            "Instructional Designer", "E-Learning Developer", "EdTech Specialist",
+            # Legal
+            "Lawyer", "Legal Analyst", "Compliance Officer",
+            "Intellectual Property Specialist", "Contract Manager",
+            # Mechanical & Civil
+            "Mechanical Engineer", "Civil Engineer", "Structural Engineer",
+            "Automobile Engineer", "Aerospace Engineer", "Manufacturing Engineer",
+            "Quality Control Engineer", "Construction Manager",
+            # Other
+            "Research Scientist", "Journalist", "Public Relations Manager",
+            "Event Manager", "Sports Analyst", "Fashion Designer",
+            "Interior Designer", "Architect", "Urban Planner",
+        ])
+
+        c1, c2 = st.columns(2)
         with c1:
-            jtl = [j['title'] for j in st.session_state.get('jobs',[])] or ["Data Scientist"]
-            sel_job = st.selectbox("Select Target Job", jtl)
+            # Searchable dropdown with all 100+ jobs
+            sel_job = st.selectbox(
+                "Select or Search Job Role",
+                ALL_JOBS,
+                index=ALL_JOBS.index("Data Scientist") if "Data Scientist" in ALL_JOBS else 0,
+                help="Type to search any job role"
+            )
         with c2:
             st.markdown("**Difficulty**")
             diff = st.radio(
