@@ -1713,154 +1713,140 @@ with tab6:
 with tab7:
     bot_nick = st.session_state.get("bot_nickname", "Aria")
 
-    # Header bar like WhatsApp
+    # ── Simple clean chat ──────────────────────────────────
     st.markdown(f"""
-    <div style="background:linear-gradient(90deg,rgba(0,212,255,0.08),rgba(123,47,247,0.08));
-                border:1px solid rgba(0,212,255,0.15);border-radius:14px;
-                padding:0.75rem 1.2rem;display:flex;align-items:center;margin-bottom:0.5rem;">
-        <div style="width:40px;height:40px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
+    <div style="display:flex;align-items:center;gap:0.75rem;padding:0.8rem 1.2rem;
+                background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.12);
+                border-radius:14px;margin-bottom:1rem;">
+        <div style="width:42px;height:42px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
                     border-radius:50%;display:flex;align-items:center;justify-content:center;
-                    font-size:1.2rem;margin-right:0.75rem;flex-shrink:0;">🤖</div>
+                    font-size:1.3rem;flex-shrink:0;">🤖</div>
         <div>
-            <div style="color:white;font-weight:700;font-size:0.95rem;font-family:'Sora',sans-serif;">
-                {bot_nick}
-            </div>
+            <div style="color:white;font-weight:700;font-size:1rem;">{bot_nick}</div>
             <div style="color:#00d4ff;font-size:0.72rem;">● Online · AI Career Mentor</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Chat CSS ──────────────────────────────────────────
-    st.markdown("""
-    <style>
-    .chat-window {
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 16px;
-        padding: 1.2rem;
-        min-height: 340px;
-        max-height: 440px;
-        overflow-y: auto;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.6rem;
-    }
-    .msg-user {
-        align-self: flex-end;
-        background: linear-gradient(135deg,#00d4ff,#0099bb);
-        color: #080c14;
-        border-radius: 18px 18px 4px 18px;
-        padding: 0.65rem 1.1rem;
-        max-width: 72%;
-        font-size: 0.9rem;
-        font-weight: 500;
-        word-wrap: break-word;
-        line-height: 1.5;
-    }
-    .msg-bot {
-        align-self: flex-start;
-        background: rgba(123,47,247,0.1);
-        border: 1px solid rgba(123,47,247,0.18);
-        color: #dce8f0;
-        border-radius: 18px 18px 18px 4px;
-        padding: 0.65rem 1.1rem;
-        max-width: 78%;
-        font-size: 0.9rem;
-        word-wrap: break-word;
-        line-height: 1.6;
-    }
-    .msg-label-user { text-align:right; color:#3a4a5a; font-size:0.68rem; margin-bottom:3px; }
-    .msg-label-bot  { text-align:left;  color:#3a4a5a; font-size:0.68rem; margin-bottom:3px; }
-    .chat-empty { text-align:center; color:#2a3a4a; padding:3rem 1rem; font-size:0.88rem; }
-    /* Hide "Press Enter to submit form" Streamlit hint */
-    div[data-testid="stForm"] p { display:none !important; }
-    small, .st-emotion-cache-uf99v8 { display:none !important; }
-    </style>
-    """, unsafe_allow_html=True)
+    # Build resume context for AI
+    resume_ctx = ""
+    if 'analysis' in st.session_state:
+        resume_ctx = f"Resume Analysis: {st.session_state['analysis'][:800]}"
+    if 'skills' in st.session_state:
+        resume_ctx += f"\nSkills found: {', '.join(st.session_state['skills'][:20])}"
+    if 'resume_score' in st.session_state:
+        resume_ctx += f"\nResume Score: {st.session_state['resume_score']}/100"
+    if 'jobs' in st.session_state:
+        resume_ctx += f"\nTop Job Matches: {', '.join([j['title'] for j in st.session_state['jobs'][:3]])}"
 
-    # ── Build chat messages ────────────────────────────────
+    system_prompt = f"""You are {bot_nick}, a friendly and expert AI career mentor.
+
+User Profile:
+- Name: {name}
+- Education: {education}  
+- Target Role: {job_target}
+{resume_ctx}
+
+Instructions:
+- Answer EXACTLY what the user asks — stay on topic
+- If they ask about their resume, use the resume data above to give specific feedback
+- If they ask general career questions, give practical actionable advice
+- Keep replies clear and concise (under 200 words)
+- Be warm and encouraging
+- If resume data is available, reference specific skills/score when relevant"""
+
+    # Show chat history
+    for msg in st.session_state.chat_history:
+        if msg['role'] == 'user':
+            st.markdown(f"""
+            <div style="display:flex;justify-content:flex-end;margin:0.4rem 0;">
+                <div style="background:linear-gradient(135deg,#00d4ff,#0099bb);color:#080c14;
+                            border-radius:18px 18px 4px 18px;padding:0.6rem 1rem;
+                            max-width:70%;font-size:0.9rem;font-weight:500;">
+                    {msg['content']}
+                </div>
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="display:flex;justify-content:flex-start;margin:0.4rem 0;">
+                <div style="background:rgba(123,47,247,0.12);border:1px solid rgba(123,47,247,0.2);
+                            color:#dce8f0;border-radius:18px 18px 18px 4px;padding:0.6rem 1rem;
+                            max-width:75%;font-size:0.9rem;line-height:1.6;">
+                    {msg['content']}
+                </div>
+            </div>""", unsafe_allow_html=True)
+
     if not st.session_state.chat_history:
-        chat_html = f"""
-        <div class="chat-window">
-            <div class="chat-empty">
-                🤖 <b style="color:#00d4ff">{bot_nick}</b> is ready!<br/>
-                <span style="font-size:0.82rem;color:#2a3a4a;">
-                    Ask anything about your career, resume, or job search.
-                </span>
-            </div>
-        </div>"""
-    else:
-        msgs_html = ""
-        for msg in st.session_state.chat_history:
-            if msg['role'] == 'user':
-                msgs_html += f'<div class="msg-label-user">You</div><div class="msg-user">{msg["content"]}</div>'
-            else:
-                msgs_html += f'<div class="msg-label-bot">{bot_nick}</div><div class="msg-bot">{msg["content"]}</div>'
-        chat_html = f'<div class="chat-window">{msgs_html}</div>'
-
-    st.markdown(chat_html, unsafe_allow_html=True)
-
-    # ── Quick chips ────────────────────────────────────────
-    st.markdown("<div style='margin-bottom:0.5rem;color:#4a5a6a;font-size:0.75rem;font-weight:600;letter-spacing:0.05em;'>💡 QUICK QUESTIONS</div>", unsafe_allow_html=True)
-    qc1, qc2, qc3, qc4 = st.columns(4)
-    with qc1:
-        if st.button("📝 Improve resume", key="q1", use_container_width=True):
-            st.session_state['quick_q'] = "How can I improve my resume?"
-            st.rerun()
-    with qc2:
-        if st.button("💼 Best jobs for me", key="q2", use_container_width=True):
-            st.session_state['quick_q'] = f"What are the best jobs for my skills: {', '.join(st.session_state.get('skills',[])[:5])}"
-            st.rerun()
-    with qc3:
-        if st.button("🎯 Interview tips", key="q3", use_container_width=True):
-            st.session_state['quick_q'] = "Give me tips to crack technical interviews."
-            st.rerun()
-    with qc4:
-        if st.button("📈 Salary advice", key="q4", use_container_width=True):
-            st.session_state['quick_q'] = "How do I negotiate a better salary?"
-            st.rerun()
+        st.markdown(f"""
+        <div style="text-align:center;padding:2.5rem 1rem;color:#3a4a5a;">
+            🤖 Hi {name}! I'm {bot_nick}.<br/>
+            <span style="font-size:0.85rem;">Ask me anything — resume feedback, job advice, interview tips, salary negotiation...</span>
+        </div>""", unsafe_allow_html=True)
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    # ── Message input — Enter sends ────────────────────────
+    # Quick chips
+    st.markdown("<div style='color:#4a5a6a;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;margin-bottom:0.4rem;'>💡 QUICK QUESTIONS</div>", unsafe_allow_html=True)
+    qc1, qc2, qc3, qc4 = st.columns(4)
+    with qc1:
+        if st.button("📝 Review my resume", key="q1", use_container_width=True):
+            st.session_state['quick_q'] = "Review my resume and tell me what's wrong and what to improve."
+            st.rerun()
+    with qc2:
+        if st.button("💼 Best jobs for me", key="q2", use_container_width=True):
+            st.session_state['quick_q'] = "Based on my skills and education, what jobs should I target?"
+            st.rerun()
+    with qc3:
+        if st.button("🎯 Interview tips", key="q3", use_container_width=True):
+            st.session_state['quick_q'] = "Give me specific interview tips for my target role."
+            st.rerun()
+    with qc4:
+        if st.button("📈 Salary advice", key="q4", use_container_width=True):
+            st.session_state['quick_q'] = "What salary should I expect and how do I negotiate?"
+            st.rerun()
+
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+    # Message input
     with st.form("chat_form", clear_on_submit=True):
-        inp_col, btn_col = st.columns([6, 1])
-        with inp_col:
+        col_inp, col_btn = st.columns([5, 1])
+        with col_inp:
             user_msg = st.text_input(
-                "msg",
+                "chat_input",
                 value=st.session_state.pop('quick_q', ''),
-                placeholder=f"Message {bot_nick}...",
-                label_visibility="collapsed",
+                placeholder=f"Ask {bot_nick} anything...",
+                label_visibility="collapsed"
             )
-        with btn_col:
-            send = st.form_submit_button("➤ Send", use_container_width=True)
+        with col_btn:
+            send = st.form_submit_button("Send ➤", use_container_width=True)
 
     if send and user_msg.strip():
-        ctx = f"You are {bot_nick}, a friendly expert AI career mentor. User's name: {name}, Education: {education}, Target role: {job_target}."
-        if 'skills' in st.session_state:
-            ctx += f" Skills: {', '.join(st.session_state['skills'][:10])}. Resume Score: {st.session_state.get('resume_score','?')}/100."
-        ctx += " Be warm, concise (max 150 words), and practical. Give actionable advice."
+        with st.spinner(f"{bot_nick} is thinking..."):
+            try:
+                resp = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        *[{"role": m["role"] if m["role"] != "assistant" else "assistant",
+                           "content": m["content"]}
+                          for m in st.session_state.chat_history[-6:]],
+                        {"role": "user", "content": user_msg.strip()}
+                    ],
+                    temperature=0.5,
+                    max_tokens=400
+                )
+                reply = resp.choices[0].message.content
+            except Exception as e:
+                reply = f"Sorry, I had trouble responding. Please try again. ({str(e)[:50]})"
 
-        with st.spinner(f"{bot_nick} is typing..."):
-            resp = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role":"user","content":f"{ctx}\n\nUser: {user_msg.strip()}"}],
-                temperature=0.5
-            )
-            reply = resp.choices[0].message.content
-
-        st.session_state.chat_history.append({"role":"user",    "content": user_msg.strip()})
-        st.session_state.chat_history.append({"role":"assistant","content": reply})
+        st.session_state.chat_history.append({"role": "user",      "content": user_msg.strip()})
+        st.session_state.chat_history.append({"role": "assistant",  "content": reply})
         st.rerun()
+
     if st.session_state.chat_history:
         if st.button("🗑️ Clear Chat", key="clear_chat_btn"):
             st.session_state.chat_history = []
             st.rerun()
-
-# ══════════════════════════════════════════════════════════
-# TAB 8 — Resume Improver
-# ══════════════════════════════════════════════════════════
 with tab8:
     st.markdown('<div class="section-title">✍️ Resume Line Improver</div>', unsafe_allow_html=True)
     st.markdown("Paste a weak bullet point → AI makes it powerful! 💪")
