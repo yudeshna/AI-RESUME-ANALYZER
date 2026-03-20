@@ -160,45 +160,45 @@ STRICT RULES:
 - Include difficulty level for each question
 - Include what a GOOD answer should cover
 
-Format EXACTLY like this:
+Format EXACTLY like this (NO difficulty labels inside questions):
 
 TECHNICAL QUESTIONS:
-1. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
+1. [Specific question relevant to {job_title}]
    → Good answer covers: [2-3 key points]
 
-2. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
+2. [Specific question relevant to {job_title}]
    → Good answer covers: [2-3 key points]
 
-3. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
+3. [Specific question relevant to {job_title}]
    → Good answer covers: [2-3 key points]
 
-4. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
+4. [Specific question relevant to {job_title}]
    → Good answer covers: [2-3 key points]
 
-5. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
+5. [Specific question relevant to {job_title}]
    → Good answer covers: [2-3 key points]
 
-6. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
+6. [Specific question relevant to {job_title}]
    → Good answer covers: [2-3 key points]
 
 BEHAVIORAL QUESTIONS:
-7. [Behavioral question specific to {job_title} work environment] | Difficulty: Medium
+7. [Behavioral question specific to {job_title} work environment]
    → Good answer covers: [2-3 key points]
 
-8. [Behavioral question specific to {job_title}] | Difficulty: Medium
+8. [Behavioral question specific to {job_title}]
    → Good answer covers: [2-3 key points]
 
-9. [Behavioral question specific to {job_title}] | Difficulty: Medium
+9. [Behavioral question specific to {job_title}]
    → Good answer covers: [2-3 key points]
 
 SITUATIONAL / CASE QUESTIONS:
-10. [Real scenario a {job_title} would actually face] | Difficulty: Hard
+10. [Real scenario a {job_title} would actually face]
     → Good answer covers: [2-3 key points]
 
-11. [Real scenario a {job_title} would actually face] | Difficulty: Hard
+11. [Real scenario a {job_title} would actually face]
     → Good answer covers: [2-3 key points]
 
-12. [Role-specific problem for {job_title}] | Difficulty: Hard
+12. [Role-specific problem for {job_title}]
     → Good answer covers: [2-3 key points]
 """
     return _chat(prompt, temperature=0.3)
