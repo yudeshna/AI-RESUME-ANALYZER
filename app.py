@@ -1751,31 +1751,38 @@ with tab7:
             <span style="font-size:0.85rem;">Ask me anything about your resume, career, jobs, or interviews!</span>
         </div>""", unsafe_allow_html=True)
     else:
+        import html as _html
         all_msgs = ""
         for msg in st.session_state.chat_history:
+            # Sanitize content — replace newlines with <br>, escape special chars
+            raw = msg['content']
+            # Convert markdown-style bold to html
+            import re as _re
+            safe = _html.escape(raw)
+            safe = safe.replace("\n", "<br>")
+            safe = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", safe)
             if msg['role'] == 'user':
-                all_msgs += f"""
-                <div style="display:flex;justify-content:flex-end;margin:8px 0;">
-                    <div style="background:linear-gradient(135deg,#00d4ff,#0099bb);color:#000;
-                                border-radius:18px 18px 4px 18px;padding:10px 16px;
-                                max-width:68%;font-size:0.9rem;font-weight:500;line-height:1.5;">
-                        {msg['content']}
-                    </div>
-                </div>"""
+                all_msgs += (
+                    f'<div style="display:flex;justify-content:flex-end;margin:8px 0;">'
+                    f'<div style="background:linear-gradient(135deg,#00d4ff,#0099bb);color:#000;'
+                    f'border-radius:18px 18px 4px 18px;padding:10px 16px;'
+                    f'max-width:68%;font-size:0.9rem;font-weight:500;line-height:1.5;">'
+                    f'{safe}</div></div>'
+                )
             else:
-                all_msgs += f"""
-                <div style="display:flex;justify-content:flex-start;margin:8px 0;">
-                    <div style="background:rgba(123,47,247,0.12);border:1px solid rgba(123,47,247,0.2);
-                                color:#dce8f0;border-radius:18px 18px 18px 4px;padding:10px 16px;
-                                max-width:75%;font-size:0.9rem;line-height:1.65;">
-                        {msg['content']}
-                    </div>
-                </div>"""
-        st.markdown(f"""
-        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);
-                    border-radius:16px;padding:1rem;min-height:200px;margin-bottom:1rem;">
-            {all_msgs}
-        </div>""", unsafe_allow_html=True)
+                all_msgs += (
+                    f'<div style="display:flex;justify-content:flex-start;margin:8px 0;">'
+                    f'<div style="background:rgba(123,47,247,0.12);border:1px solid rgba(123,47,247,0.2);'
+                    f'color:#dce8f0;border-radius:18px 18px 18px 4px;padding:10px 16px;'
+                    f'max-width:75%;font-size:0.9rem;line-height:1.65;">'
+                    f'{safe}</div></div>'
+                )
+        chat_box = (
+            '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);'
+            'border-radius:16px;padding:1rem;min-height:200px;margin-bottom:1rem;">'
+            + all_msgs + '</div>'
+        )
+        st.markdown(chat_box, unsafe_allow_html=True)
 
     st.markdown("---")
 
