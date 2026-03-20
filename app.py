@@ -845,24 +845,6 @@ with st.sidebar:
 
     bot_nick = st.session_state.get("bot_nickname", "Aria")
 
-    # Welcome card
-    st.markdown(f"""
-    <div class="welcome-card">
-        <div style="width:52px;height:52px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
-                    border-radius:50%;display:flex;align-items:center;justify-content:center;
-                    font-size:1.5rem;margin:0 auto 0.75rem;">{initials}</div>
-        <div class="welcome-name">👋 {name}</div>
-        <div class="welcome-detail">🎓 {education}</div>
-        <div class="welcome-detail">🎯 {job_target}</div>
-        <div class="welcome-email">✉️ {email}</div>
-        <div style="margin-top:0.5rem;color:#7b2ff7;font-size:0.78rem;font-weight:600;">
-            🤖 AI Mentor: <span style="color:#00d4ff">{bot_nick}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
     if st.button("🚪 Logout", key="logout_btn"):
         delete_session_token(st.session_state.get("session_token",""))
         st.query_params.clear()
@@ -883,16 +865,7 @@ if st.session_state.page == "settings":
     bot_nick = st.session_state.get("bot_nickname", "Aria")
 
     with st.sidebar:
-        st.markdown(f"""
-        <div class="welcome-card">
-            <div style="width:44px;height:44px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
-                        border-radius:50%;display:flex;align-items:center;justify-content:center;
-                        font-size:1.2rem;margin:0 auto 0.6rem;">{initials}</div>
-            <div class="welcome-name">{name}</div>
-            <div class="welcome-email">✉️ {email}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("---")
+
         if st.button("← Back to App", key="settings_back"):
             st.session_state.page = "app"
             st.rerun()
