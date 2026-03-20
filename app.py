@@ -1742,21 +1742,40 @@ with tab7:
     ctx_parts.append("Answer exactly what the user asks. Be concise and helpful. Max 150 words.")
     system_prompt = " ".join(ctx_parts)
 
-    # Show messages
+    # Show ALL messages in one block — no Streamlit box wrapping
     if not st.session_state.chat_history:
-        st.info(f"👋 Hi {name}! I'm {bot_nick}. Ask me anything about your resume, career, jobs, or interviews!")
+        st.markdown(f"""
+        <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.1);
+                    border-radius:14px;padding:2rem;text-align:center;color:#4a6a8a;margin-bottom:1rem;">
+            👋 Hi <b style="color:#00d4ff">{name}</b>! I'm <b style="color:#00d4ff">{bot_nick}</b>.<br/>
+            <span style="font-size:0.85rem;">Ask me anything about your resume, career, jobs, or interviews!</span>
+        </div>""", unsafe_allow_html=True)
     else:
+        all_msgs = ""
         for msg in st.session_state.chat_history:
             if msg['role'] == 'user':
-                st.markdown(f"""<div style="display:flex;justify-content:flex-end;margin:6px 0;">
-                <div style="background:linear-gradient(135deg,#00d4ff,#0099bb);color:#000;
-                border-radius:16px 16px 4px 16px;padding:8px 14px;max-width:70%;font-size:0.9rem;">
-                {msg['content']}</div></div>""", unsafe_allow_html=True)
+                all_msgs += f"""
+                <div style="display:flex;justify-content:flex-end;margin:8px 0;">
+                    <div style="background:linear-gradient(135deg,#00d4ff,#0099bb);color:#000;
+                                border-radius:18px 18px 4px 18px;padding:10px 16px;
+                                max-width:68%;font-size:0.9rem;font-weight:500;line-height:1.5;">
+                        {msg['content']}
+                    </div>
+                </div>"""
             else:
-                st.markdown(f"""<div style="display:flex;justify-content:flex-start;margin:6px 0;">
-                <div style="background:rgba(123,47,247,0.15);border:1px solid rgba(123,47,247,0.25);
-                color:#e0e8f0;border-radius:16px 16px 16px 4px;padding:8px 14px;max-width:75%;font-size:0.9rem;line-height:1.6;">
-                {msg['content']}</div></div>""", unsafe_allow_html=True)
+                all_msgs += f"""
+                <div style="display:flex;justify-content:flex-start;margin:8px 0;">
+                    <div style="background:rgba(123,47,247,0.12);border:1px solid rgba(123,47,247,0.2);
+                                color:#dce8f0;border-radius:18px 18px 18px 4px;padding:10px 16px;
+                                max-width:75%;font-size:0.9rem;line-height:1.65;">
+                        {msg['content']}
+                    </div>
+                </div>"""
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);
+                    border-radius:16px;padding:1rem;min-height:200px;margin-bottom:1rem;">
+            {all_msgs}
+        </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
 
