@@ -1713,14 +1713,14 @@ with tab6:
 with tab7:
     bot_nick = st.session_state.get("bot_nickname", "Aria")
 
-    # ── Simple clean chat ──────────────────────────────────
+    # Header
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:0.75rem;padding:0.8rem 1.2rem;
                 background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.12);
                 border-radius:14px;margin-bottom:1rem;">
         <div style="width:42px;height:42px;background:linear-gradient(135deg,#00d4ff,#7b2ff7);
                     border-radius:50%;display:flex;align-items:center;justify-content:center;
-                    font-size:1.3rem;flex-shrink:0;">🤖</div>
+                    font-size:1.3rem;">🤖</div>
         <div>
             <div style="color:white;font-weight:700;font-size:1rem;">{bot_nick}</div>
             <div style="color:#00d4ff;font-size:0.72rem;">● Online · AI Career Mentor</div>
@@ -1728,122 +1728,90 @@ with tab7:
     </div>
     """, unsafe_allow_html=True)
 
-    # Build resume context for AI
-    resume_ctx = ""
-    if 'analysis' in st.session_state:
-        resume_ctx = f"Resume Analysis: {st.session_state['analysis'][:800]}"
-    if 'skills' in st.session_state:
-        resume_ctx += f"\nSkills found: {', '.join(st.session_state['skills'][:20])}"
+    # Build system context
+    ctx_parts = [f"You are {bot_nick}, a helpful AI career mentor."]
+    ctx_parts.append(f"User name: {name}, Education: {education}, Target role: {job_target}.")
+    if 'skills' in st.session_state and st.session_state['skills']:
+        ctx_parts.append(f"Their skills: {', '.join(st.session_state['skills'][:15])}.")
     if 'resume_score' in st.session_state:
-        resume_ctx += f"\nResume Score: {st.session_state['resume_score']}/100"
-    if 'jobs' in st.session_state:
-        resume_ctx += f"\nTop Job Matches: {', '.join([j['title'] for j in st.session_state['jobs'][:3]])}"
+        ctx_parts.append(f"Resume score: {st.session_state['resume_score']}/100.")
+    if 'jobs' in st.session_state and st.session_state['jobs']:
+        ctx_parts.append(f"Best job matches: {', '.join([j['title'] for j in st.session_state['jobs'][:3]])}.")
+    if 'analysis' in st.session_state:
+        ctx_parts.append(f"Resume analysis summary: {str(st.session_state['analysis'])[:500]}.")
+    ctx_parts.append("Answer exactly what the user asks. Be concise and helpful. Max 150 words.")
+    system_prompt = " ".join(ctx_parts)
 
-    system_prompt = f"""You are {bot_nick}, a friendly and expert AI career mentor.
-
-User Profile:
-- Name: {name}
-- Education: {education}  
-- Target Role: {job_target}
-{resume_ctx}
-
-Instructions:
-- Answer EXACTLY what the user asks — stay on topic
-- If they ask about their resume, use the resume data above to give specific feedback
-- If they ask general career questions, give practical actionable advice
-- Keep replies clear and concise (under 200 words)
-- Be warm and encouraging
-- If resume data is available, reference specific skills/score when relevant"""
-
-    # Show chat history
-    for msg in st.session_state.chat_history:
-        if msg['role'] == 'user':
-            st.markdown(f"""
-            <div style="display:flex;justify-content:flex-end;margin:0.4rem 0;">
-                <div style="background:linear-gradient(135deg,#00d4ff,#0099bb);color:#080c14;
-                            border-radius:18px 18px 4px 18px;padding:0.6rem 1rem;
-                            max-width:70%;font-size:0.9rem;font-weight:500;">
-                    {msg['content']}
-                </div>
-            </div>""", unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div style="display:flex;justify-content:flex-start;margin:0.4rem 0;">
-                <div style="background:rgba(123,47,247,0.12);border:1px solid rgba(123,47,247,0.2);
-                            color:#dce8f0;border-radius:18px 18px 18px 4px;padding:0.6rem 1rem;
-                            max-width:75%;font-size:0.9rem;line-height:1.6;">
-                    {msg['content']}
-                </div>
-            </div>""", unsafe_allow_html=True)
-
+    # Show messages
     if not st.session_state.chat_history:
-        st.markdown(f"""
-        <div style="text-align:center;padding:2.5rem 1rem;color:#3a4a5a;">
-            🤖 Hi {name}! I'm {bot_nick}.<br/>
-            <span style="font-size:0.85rem;">Ask me anything — resume feedback, job advice, interview tips, salary negotiation...</span>
-        </div>""", unsafe_allow_html=True)
+        st.info(f"👋 Hi {name}! I'm {bot_nick}. Ask me anything about your resume, career, jobs, or interviews!")
+    else:
+        for msg in st.session_state.chat_history:
+            if msg['role'] == 'user':
+                st.markdown(f"""<div style="display:flex;justify-content:flex-end;margin:6px 0;">
+                <div style="background:linear-gradient(135deg,#00d4ff,#0099bb);color:#000;
+                border-radius:16px 16px 4px 16px;padding:8px 14px;max-width:70%;font-size:0.9rem;">
+                {msg['content']}</div></div>""", unsafe_allow_html=True)
+            else:
+                st.markdown(f"""<div style="display:flex;justify-content:flex-start;margin:6px 0;">
+                <div style="background:rgba(123,47,247,0.15);border:1px solid rgba(123,47,247,0.25);
+                color:#e0e8f0;border-radius:16px 16px 16px 4px;padding:8px 14px;max-width:75%;font-size:0.9rem;line-height:1.6;">
+                {msg['content']}</div></div>""", unsafe_allow_html=True)
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown("---")
 
     # Quick chips
-    st.markdown("<div style='color:#4a5a6a;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;margin-bottom:0.4rem;'>💡 QUICK QUESTIONS</div>", unsafe_allow_html=True)
-    qc1, qc2, qc3, qc4 = st.columns(4)
-    with qc1:
-        if st.button("📝 Review my resume", key="q1", use_container_width=True):
-            st.session_state['quick_q'] = "Review my resume and tell me what's wrong and what to improve."
-            st.rerun()
-    with qc2:
-        if st.button("💼 Best jobs for me", key="q2", use_container_width=True):
-            st.session_state['quick_q'] = "Based on my skills and education, what jobs should I target?"
-            st.rerun()
-    with qc3:
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        if st.button("📝 Review resume", key="q1", use_container_width=True):
+            st.session_state['_chat_send'] = "Review my resume and tell me what needs improvement."
+    with c2:
+        if st.button("💼 Best jobs", key="q2", use_container_width=True):
+            st.session_state['_chat_send'] = "What jobs best match my skills and education?"
+    with c3:
         if st.button("🎯 Interview tips", key="q3", use_container_width=True):
-            st.session_state['quick_q'] = "Give me specific interview tips for my target role."
-            st.rerun()
-    with qc4:
+            st.session_state['_chat_send'] = "Give me interview tips for my target role."
+    with c4:
         if st.button("📈 Salary advice", key="q4", use_container_width=True):
-            st.session_state['quick_q'] = "What salary should I expect and how do I negotiate?"
-            st.rerun()
+            st.session_state['_chat_send'] = "What salary should I expect and how to negotiate?"
 
     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-    # Message input
-    # Store pending message in session before form clears it
-    _default_msg = st.session_state.pop('quick_q', '')
+    # Simple input — NO form, just text_input + button
+    user_input = st.text_input(
+        "message",
+        placeholder=f"Type your message to {bot_nick}...",
+        label_visibility="collapsed",
+        key="chat_text_input"
+    )
+    send_clicked = st.button("➤ Send Message", key="chat_send_btn", use_container_width=True)
 
-    with st.form("chat_form", clear_on_submit=True):
-        user_msg = st.text_input(
-            "chat_input",
-            value=_default_msg,
-            placeholder=f"Ask {bot_nick} anything... (press Enter to send)",
-            label_visibility="collapsed"
-        )
-        send = st.form_submit_button("➤ Send", use_container_width=True)
-        # Save msg to session state INSIDE form before clear happens
-        if send and user_msg.strip():
-            st.session_state['_pending_msg'] = user_msg.strip()
+    # Determine what to send
+    to_send = None
+    if send_clicked and user_input.strip():
+        to_send = user_input.strip()
+    elif '_chat_send' in st.session_state:
+        to_send = st.session_state.pop('_chat_send')
 
-    # Process AFTER form — user_msg is now in session state
-    if st.session_state.get('_pending_msg'):
-        pending = st.session_state.pop('_pending_msg')
+    if to_send:
         with st.spinner(f"{bot_nick} is thinking..."):
             try:
+                messages = [{"role": "system", "content": system_prompt}]
+                for m in st.session_state.chat_history[-8:]:
+                    messages.append({"role": m["role"], "content": m["content"]})
+                messages.append({"role": "user", "content": to_send})
+
                 resp = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        *[{"role": m["role"], "content": m["content"]}
-                          for m in st.session_state.chat_history[-6:]],
-                        {"role": "user", "content": pending}
-                    ],
-                    temperature=0.5,
-                    max_tokens=400
+                    messages=messages,
+                    temperature=0.6,
+                    max_tokens=350
                 )
-                reply = resp.choices[0].message.content
+                reply = resp.choices[0].message.content.strip()
             except Exception as e:
-                reply = f"Sorry, something went wrong: {str(e)[:80]}"
+                reply = f"Error: {str(e)}"
 
-        st.session_state.chat_history.append({"role": "user",      "content": pending})
+        st.session_state.chat_history.append({"role": "user",      "content": to_send})
         st.session_state.chat_history.append({"role": "assistant",  "content": reply})
         st.rerun()
 
