@@ -863,25 +863,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Resume Stats
-    if 'skills' in st.session_state:
-        st.markdown("### 📊 Resume Stats")
-        st.metric("Skills Found", len(st.session_state['skills']))
-        if 'resume_score' in st.session_state:
-            score_val = st.session_state['resume_score']
-            score_color = "🟢" if score_val >= 70 else "🟡" if score_val >= 50 else "🔴"
-            st.metric("Resume Score", f"{score_color} {score_val}/100")
-        if 'jobs' in st.session_state:
-            st.metric("Best Job Match", st.session_state['jobs'][0]['title'])
-        st.markdown("---")
-
-    # Bottom actions
-    st.markdown("<div style='flex:1'></div>", unsafe_allow_html=True)
-
-    if st.button("⚙️ Settings", key="goto_settings_btn"):
-        st.session_state.page = "settings"
-        st.rerun()
-
     if st.button("🚪 Logout", key="logout_btn"):
         delete_session_token(st.session_state.get("session_token",""))
         st.query_params.clear()
@@ -1551,7 +1532,13 @@ with tab5:
             jtl = [j['title'] for j in st.session_state.get('jobs',[])] or ["Data Scientist"]
             sel_job = st.selectbox("Select Target Job", jtl)
         with c2:
-            diff = st.selectbox("Difficulty", ["Entry Level","Mid Level","Senior Level"])
+            st.markdown("**Difficulty**")
+            diff = st.radio(
+                "Difficulty",
+                ["Entry Level", "Mid Level", "Senior Level"],
+                horizontal=True,
+                label_visibility="collapsed"
+            )
         if st.button("🎯 Generate Questions", key="interview_btn"):
             with st.spinner("🤖 Generating..."):
                 qs = generate_interview_questions(st.session_state['skills'], f"{diff} {sel_job}")
