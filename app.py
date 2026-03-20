@@ -1809,16 +1809,13 @@ Instructions:
 
     # Message input
     with st.form("chat_form", clear_on_submit=True):
-        col_inp, col_btn = st.columns([5, 1])
-        with col_inp:
-            user_msg = st.text_input(
-                "chat_input",
-                value=st.session_state.pop('quick_q', ''),
-                placeholder=f"Ask {bot_nick} anything...",
-                label_visibility="collapsed"
-            )
-        with col_btn:
-            send = st.form_submit_button("Send ➤", use_container_width=True)
+        user_msg = st.text_input(
+            "chat_input",
+            value=st.session_state.pop('quick_q', ''),
+            placeholder=f"Ask {bot_nick} anything... (press Enter to send)",
+            label_visibility="collapsed"
+        )
+        send = st.form_submit_button("Send ➤", use_container_width=True)
 
     if send and user_msg.strip():
         with st.spinner(f"{bot_nick} is thinking..."):
