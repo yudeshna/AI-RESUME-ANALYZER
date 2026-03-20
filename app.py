@@ -91,9 +91,9 @@ code, pre { font-family: 'Fira Code', 'Courier New', monospace; }
     font-size: 0.78rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
 }
 .welcome-card {
-    background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(123,47,247,0.08));
-    border: 1px solid rgba(0,212,255,0.15);
-    border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; text-align: center;
+    background: transparent;
+    border: none;
+    border-radius: 16px; padding: 0.8rem 0.5rem; margin-bottom: 0.5rem; text-align: center;
 }
 .welcome-name { font-family:'Sora',sans-serif; font-size:1rem; font-weight:700; color:white; margin-bottom:0.2rem; }
 .welcome-detail { color: #5a6478; font-size: 0.78rem; }
