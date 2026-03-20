@@ -1597,13 +1597,14 @@ with tab5:
 
         c1, c2 = st.columns(2)
         with c1:
-            # Free text input — type ANY job role
-            sel_job = st.text_input(
-                "Type Any Job Role",
-                placeholder="e.g. Pharmacist, IAS Officer, Data Scientist, Chef...",
-                help="Type any job role — even if not in the list, AI will generate questions for it"
-            )
-            # Show suggestions from dataset as helper
+            # Wrap in form so Enter key triggers generation
+            with st.form("interview_form", clear_on_submit=False):
+                sel_job = st.text_input(
+                    "Type Any Job Role",
+                    placeholder="e.g. Pharmacist, IAS Officer, Data Scientist, Chef...",
+                )
+                interview_submitted = st.form_submit_button("🎯 Generate Questions", use_container_width=True)
+            # Show suggestions as helper
             if sel_job:
                 matches = [j for j in ALL_JOBS if sel_job.lower() in j.lower()][:5]
                 if matches:
@@ -1616,7 +1617,7 @@ with tab5:
                 horizontal=True,
                 label_visibility="collapsed"
             )
-        if st.button("🎯 Generate Questions", key="interview_btn"):
+        if interview_submitted:
             if not sel_job.strip():
                 st.error("❌ Please enter a job role first.")
             else:

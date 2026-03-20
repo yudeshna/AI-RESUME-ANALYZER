@@ -111,57 +111,94 @@ Resume Text:
 
 
 def generate_interview_questions(skills, job_title):
-    skills_str = ", ".join(skills[:15])
-    prompt = f"""You are a senior technical interviewer at a top tech company.
+    skills_str = ", ".join(skills[:15]) if skills else "general"
 
-Generate exactly 12 highly relevant, specific interview questions for a {job_title} role.
-Candidate skills: {skills_str}
+    # Detect domain to tailor questions correctly
+    job_lower = job_title.lower()
+    is_govt = any(w in job_lower for w in ["upsc","ias","ips","irs","ssc","bank po","railway","psc","defence","government","civil service","nda","cds"])
+    is_medical = any(w in job_lower for w in ["doctor","mbbs","pharmacist","nurse","medical","clinical","hospital","health","dentist"])
+    is_law = any(w in job_lower for w in ["lawyer","legal","advocate","judge","compliance","law"])
+    is_finance = any(w in job_lower for w in ["ca","chartered","accountant","finance","banking","investment","actuary","tax","audit"])
+    is_design = any(w in job_lower for w in ["designer","ui","ux","graphic","creative","animator","illustrator"])
+    is_management = any(w in job_lower for w in ["manager","mba","hr","operations","supply chain","project manager","product manager","scrum"])
+    is_tech = not any([is_govt, is_medical, is_law, is_finance, is_design, is_management])
 
-Rules:
-- Technical questions must be specific to their actual listed skills
-- Do NOT ask generic questions like "Tell me about yourself"
+    if is_govt:
+        domain_context = f"""This is a GOVERNMENT / CIVIL SERVICES interview for: {job_title}
+Questions must cover: General Knowledge, Current Affairs, Indian Polity & Constitution, History, Geography, Economy, Ethics & Integrity, Public Administration, and role-specific knowledge.
+Do NOT ask coding or software questions."""
+    elif is_medical:
+        domain_context = f"""This is a HEALTHCARE / MEDICAL interview for: {job_title}
+Questions must cover: Clinical knowledge, patient care, medical ethics, pharmacology (if relevant), anatomy, diagnosis, and healthcare regulations.
+Do NOT ask coding or software questions."""
+    elif is_law:
+        domain_context = f"""This is a LEGAL / LAW interview for: {job_title}
+Questions must cover: Legal concepts, case law, Indian Penal Code, Constitution, contract law, compliance regulations, and legal reasoning."""
+    elif is_finance:
+        domain_context = f"""This is a FINANCE / ACCOUNTING interview for: {job_title}
+Questions must cover: Financial statements, taxation, audit, investment principles, risk management, financial regulations, and accounting standards."""
+    elif is_design:
+        domain_context = f"""This is a DESIGN interview for: {job_title}
+Questions must cover: Design principles, UX research, tools (Figma, Adobe), typography, color theory, portfolio review, and design thinking process."""
+    elif is_management:
+        domain_context = f"""This is a MANAGEMENT / BUSINESS interview for: {job_title}
+Questions must cover: Leadership, team management, strategy, stakeholder communication, conflict resolution, and role-specific business knowledge."""
+    else:
+        domain_context = f"""This is a TECHNICAL interview for: {job_title}
+Candidate's technical skills: {skills_str}
+Questions must be directly relevant to these skills and this specific role."""
+
+    prompt = f"""You are an expert interviewer with 15 years of experience hiring for {job_title} roles.
+
+{domain_context}
+
+Generate exactly 12 highly relevant interview questions for a {job_title} position.
+
+STRICT RULES:
+- Every question must be 100% relevant to {job_title} — no off-topic questions
+- Questions must match the actual domain (govt exam = GK/polity, medical = clinical, tech = coding/systems)
 - Include difficulty level for each question
-- Include what a GOOD answer should cover (hint)
+- Include what a GOOD answer should cover
 
 Format EXACTLY like this:
 
 TECHNICAL QUESTIONS:
-1. [Specific technical question based on their skills] | Difficulty: [Easy/Medium/Hard]
+1. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
    → Good answer covers: [2-3 key points]
 
-2. [Specific technical question] | Difficulty: [Easy/Medium/Hard]
+2. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
    → Good answer covers: [2-3 key points]
 
-3. [Specific technical question] | Difficulty: [Easy/Medium/Hard]
+3. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
    → Good answer covers: [2-3 key points]
 
-4. [Specific technical question] | Difficulty: [Easy/Medium/Hard]
+4. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
    → Good answer covers: [2-3 key points]
 
-5. [Specific technical question] | Difficulty: [Easy/Medium/Hard]
+5. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
    → Good answer covers: [2-3 key points]
 
-6. [Specific technical question] | Difficulty: [Easy/Medium/Hard]
+6. [Specific question relevant to {job_title}] | Difficulty: [Easy/Medium/Hard]
    → Good answer covers: [2-3 key points]
 
 BEHAVIORAL QUESTIONS:
-7. [STAR-format behavioral question] | Difficulty: Medium
+7. [Behavioral question specific to {job_title} work environment] | Difficulty: Medium
    → Good answer covers: [2-3 key points]
 
-8. [STAR-format behavioral question] | Difficulty: Medium
+8. [Behavioral question specific to {job_title}] | Difficulty: Medium
    → Good answer covers: [2-3 key points]
 
-9. [STAR-format behavioral question] | Difficulty: Medium
+9. [Behavioral question specific to {job_title}] | Difficulty: Medium
    → Good answer covers: [2-3 key points]
 
 SITUATIONAL / CASE QUESTIONS:
-10. [Real-world scenario question] | Difficulty: Hard
+10. [Real scenario a {job_title} would actually face] | Difficulty: Hard
     → Good answer covers: [2-3 key points]
 
-11. [Real-world scenario question] | Difficulty: Hard
+11. [Real scenario a {job_title} would actually face] | Difficulty: Hard
     → Good answer covers: [2-3 key points]
 
-12. [Role-specific problem-solving question] | Difficulty: Hard
+12. [Role-specific problem for {job_title}] | Difficulty: Hard
     → Good answer covers: [2-3 key points]
 """
     return _chat(prompt, temperature=0.3)
