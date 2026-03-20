@@ -1808,35 +1808,42 @@ Instructions:
     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
     # Message input
+    # Store pending message in session before form clears it
+    _default_msg = st.session_state.pop('quick_q', '')
+
     with st.form("chat_form", clear_on_submit=True):
         user_msg = st.text_input(
             "chat_input",
-            value=st.session_state.pop('quick_q', ''),
+            value=_default_msg,
             placeholder=f"Ask {bot_nick} anything... (press Enter to send)",
             label_visibility="collapsed"
         )
-        send = st.form_submit_button("Send ➤", use_container_width=True)
+        send = st.form_submit_button("➤ Send", use_container_width=True)
+        # Save msg to session state INSIDE form before clear happens
+        if send and user_msg.strip():
+            st.session_state['_pending_msg'] = user_msg.strip()
 
-    if send and user_msg.strip():
+    # Process AFTER form — user_msg is now in session state
+    if st.session_state.get('_pending_msg'):
+        pending = st.session_state.pop('_pending_msg')
         with st.spinner(f"{bot_nick} is thinking..."):
             try:
                 resp = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        *[{"role": m["role"] if m["role"] != "assistant" else "assistant",
-                           "content": m["content"]}
+                        *[{"role": m["role"], "content": m["content"]}
                           for m in st.session_state.chat_history[-6:]],
-                        {"role": "user", "content": user_msg.strip()}
+                        {"role": "user", "content": pending}
                     ],
                     temperature=0.5,
                     max_tokens=400
                 )
                 reply = resp.choices[0].message.content
             except Exception as e:
-                reply = f"Sorry, I had trouble responding. Please try again. ({str(e)[:50]})"
+                reply = f"Sorry, something went wrong: {str(e)[:80]}"
 
-        st.session_state.chat_history.append({"role": "user",      "content": user_msg.strip()})
+        st.session_state.chat_history.append({"role": "user",      "content": pending})
         st.session_state.chat_history.append({"role": "assistant",  "content": reply})
         st.rerun()
 
