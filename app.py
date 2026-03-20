@@ -1645,42 +1645,38 @@ with tab5:
                     if not line:
                         continue
                     # Section headings
-                    if any(h in line.upper() for h in ["TECHNICAL QUESTIONS", "BEHAVIORAL QUESTIONS", "SITUATIONAL", "CASE QUESTIONS"]):
+                    if any(h in line.upper() for h in ["TECHNICAL QUESTIONS","BEHAVIORAL QUESTIONS","SITUATIONAL","CASE QUESTIONS"]):
                         icon = "⚙️" if "TECHNICAL" in line.upper() else "🧠" if "BEHAVIORAL" in line.upper() else "💡"
-                        clean = re.sub(r"[:#\*]+", "", line).strip()
+                        clean = re.sub(r"[:#*]+", "", line).strip()
                         html += f'<div class="ai-section-heading">{icon} {clean}</div>'
-                    # Numbered question line
+                    # Numbered question — strip any | Difficulty: ... leftover too
                     elif re.match(r"^\d+\.", line):
                         q_num += 1
-                        # Parse: "1. Question text | Difficulty: Hard"
-                        parts = line.split("|")
-                        q_text = re.sub(r"^\d+\.\s*", "", parts[0]).strip()
-                        diff_label = ""
-                        diff_class = "diff-medium"
-                        if len(parts) > 1:
-                            diff_match = re.search(r"(Easy|Medium|Hard)", parts[1], re.I)
-                            if diff_match:
-                                d = diff_match.group(1).capitalize()
-                                diff_class = f"diff-{d.lower()}"
-                                diff_label = f'<span class="ai-num-diff {diff_class}">{d}</span>'
-                        html += f'''
-                        <div class="ai-numbered">
-                            <div class="ai-num-badge">{q_num}</div>
-                            <div class="ai-num-content">
-                                <div class="ai-num-title">{q_text}</div>
-                                {diff_label}
-                            </div>
-                        </div>'''
-                    # Hint / good answer line
-                    elif line.startswith("→"):
-                        hint_text = line.replace("→", "").replace("Good answer covers:", "").strip()
-                        html += f'<div class="ai-num-hint" style="margin-left:2.2rem;margin-top:-0.3rem;margin-bottom:0.4rem;color:#5a7a96;font-size:0.78rem;">💡 {hint_text}</div>'
-                    # Skip separator lines
+                        # Remove number prefix and any difficulty tag
+                        q_text = re.sub(r"^\d+\.\s*", "", line)
+                        q_text = re.sub(r"\|\s*Difficulty:.*", "", q_text, flags=re.I).strip()
+                        html += (
+                            f'<div class="ai-numbered">'
+                            f'<div class="ai-num-badge">{q_num}</div>'
+                            f'<div class="ai-num-content">'
+                            f'<div class="ai-num-title">{q_text}</div>'
+                            f'</div></div>'
+                        )
+                    # Hint line
+                    elif line.startswith("→") or "Good answer covers" in line:
+                        hint_text = re.sub(r"^→\s*", "", line)
+                        hint_text = hint_text.replace("Good answer covers:", "").strip()
+                        html += (
+                            f'<div style="margin-left:2.4rem;margin-top:-0.2rem;margin-bottom:0.8rem;'
+                            f'color:#5a7a96;font-size:0.78rem;line-height:1.5;">'
+                            f'💡 {hint_text}</div>'
+                        )
+                    # Separator
                     elif set(line) <= set("=-─━"):
                         html += "<hr style='border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0.5rem 0'>"
-                    # Regular text
+                    # Any other plain text
                     else:
-                        html += f'<div style="color:#8892a4;font-size:0.82rem;padding:0.2rem 0.6rem;">{line}</div>'
+                        html += f'<div style="color:#8892a4;font-size:0.82rem;padding:0.15rem 0.6rem;">{line}</div>'
                 html += "</div>"
                 return html
 
