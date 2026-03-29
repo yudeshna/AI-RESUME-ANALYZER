@@ -1068,6 +1068,19 @@ with tab1:
             score = 70
         st.session_state['resume_score'] = score
 
+        # Calculate ATS score based on skills + formatting
+        try:
+            ats_line = [l for l in analysis.split('\n') if 'ATS' in l and any(c.isdigit() for c in l)]
+            if ats_line:
+                ats_score = min(int(''.join(filter(str.isdigit, ats_line[0]))), 100)
+            else:
+                # Calculate from skills count and score
+                skill_bonus = min(len(skills) * 3, 30)
+                ats_score   = min(int(score * 0.85) + skill_bonus, 100)
+        except:
+            ats_score = min(int(score * 0.85) + min(len(skills) * 2, 20), 100)
+        st.session_state['ats_score'] = ats_score
+
         db.collection("resume_analysis").add({
             "user_email": email, "user_name": name, "score": score,
             "skills": skills,
@@ -1126,17 +1139,21 @@ with tab1:
                 &nbsp;<span style="color:{color}">({'+' if diff>0 else ''}{diff} pts)</span>
             </div>""", unsafe_allow_html=True)
 
-        col1, col2, col3, col4 = st.columns(4)
-        c = "#00ff88" if score>=70 else "#ffbb00" if score>=50 else "#ff4444"
+        col1, col2, col3, col4, col5 = st.columns(5)
+        c   = "#00ff88" if score>=70 else "#ffbb00" if score>=50 else "#ff4444"
+        ats = st.session_state.get('ats_score', 0)
+        ca  = "#00ff88" if ats>=70 else "#ffbb00" if ats>=50 else "#ff4444"
         with col1:
-            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:{c}">{score}</div><div style="color:#5a6478">Resume Score</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-card"><div style="font-size:2.6rem;font-weight:900;color:{c}">{score}</div><div style="color:#5a6478">Resume Score</div></div>', unsafe_allow_html=True)
         with col2:
-            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#00d4ff">{len(skills)}</div><div style="color:#5a6478">Skills Found</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-card"><div style="font-size:2.6rem;font-weight:900;color:{ca}">{ats}%</div><div style="color:#5a6478">ATS Score</div></div>', unsafe_allow_html=True)
         with col3:
-            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#7b2ff7">{len(categories)}</div><div style="color:#5a6478">Skill Categories</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-card"><div style="font-size:2.6rem;font-weight:900;color:#00d4ff">{len(skills)}</div><div style="color:#5a6478">Skills Found</div></div>', unsafe_allow_html=True)
         with col4:
-            top_match = st.session_state['jobs'][0]['match_score'] if st.session_state.get('jobs') else 0
-            st.markdown(f'<div class="metric-card"><div style="font-size:3rem;font-weight:900;color:#ff6b6b">{top_match}%</div><div style="color:#5a6478">Top Job Match</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-card"><div style="font-size:2.6rem;font-weight:900;color:#7b2ff7">{len(categories)}</div><div style="color:#5a6478">Skill Categories</div></div>', unsafe_allow_html=True)
+        with col5:
+            top_match = st.session_state['jobs'][0]['similarity_score'] if st.session_state.get('jobs') else 0
+            st.markdown(f'<div class="metric-card"><div style="font-size:2.6rem;font-weight:900;color:#ff6b6b">{top_match}%</div><div style="color:#5a6478">Top Job Match</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
         st.progress(score / 100)

@@ -168,61 +168,60 @@ JOBS_DATA = [
 
 def smart_job_match(resume_text, n_results=5):
     """
-    High-accuracy job matching using:
-    1. TF-IDF cosine similarity (semantic match)
-    2. Skill keyword overlap scoring (exact skill match)
-    3. Weighted combination for final score
+    Skill-based job matching:
+    - Primary: exact required skill match percentage
+    - Secondary: bonus skill match
+    - Tertiary: TF-IDF for context
+    Score = directly reflects how many required skills the user has
     """
-    job_descriptions = [job["description"] for job in JOBS_DATA]
-
-    # ── Step 1: TF-IDF Cosine Similarity ──────────────────────────────────────
-    all_docs = [resume_text] + job_descriptions
-    vectorizer = TfidfVectorizer(
-        stop_words="english",
-        ngram_range=(1, 2),       # bigrams improve accuracy
-        min_df=1,
-        max_features=5000,
-        sublinear_tf=True         # log normalization
-    )
-    tfidf_matrix = vectorizer.fit_transform(all_docs)
-    resume_vec = tfidf_matrix[0]
-    job_vecs = tfidf_matrix[1:]
-    tfidf_scores = cosine_similarity(resume_vec, job_vecs)[0]
-
-    # ── Step 2: Skill keyword overlap ─────────────────────────────────────────
     resume_lower = resume_text.lower()
 
-    def skill_overlap_score(job):
+    # ── Step 1: Pure skill overlap (main score driver) ────────────────────────
+    def calc_skill_score(job):
         required = job["required_skills"]
-        bonus = job.get("bonus_skills", [])
-        required_found = sum(1 for s in required if s.lower() in resume_lower)
-        bonus_found = sum(1 for s in bonus if s.lower() in resume_lower)
-        required_score = required_found / max(len(required), 1)
-        bonus_score = (bonus_found / max(len(bonus), 1)) * 0.3
-        return min(required_score + bonus_score, 1.0)
+        bonus    = job.get("bonus_skills", [])
 
-    skill_scores = np.array([skill_overlap_score(job) for job in JOBS_DATA])
+        req_found   = [s for s in required if s.lower() in resume_lower]
+        bonus_found = [s for s in bonus    if s.lower() in resume_lower]
 
-    # ── Step 3: Weighted combination ──────────────────────────────────────────
-    # 55% TF-IDF + 45% skill overlap for best accuracy
-    combined_scores = (0.55 * tfidf_scores) + (0.45 * skill_scores)
+        req_pct   = len(req_found)   / max(len(required), 1)   # 0.0 - 1.0
+        bonus_pct = len(bonus_found) / max(len(bonus), 1)       # 0.0 - 1.0
 
-    # ── Step 4: Normalize to 0-100 with realistic range ───────────────────────
+        # Weight: 80% required skills, 20% bonus skills
+        return (req_pct * 0.80) + (bonus_pct * 0.20), req_found, bonus_found
+
+    # ── Step 2: TF-IDF for context boost ──────────────────────────────────────
+    job_descriptions = [job["description"] for job in JOBS_DATA]
+    all_docs = [resume_text] + job_descriptions
+    vectorizer = TfidfVectorizer(
+        stop_words="english", ngram_range=(1, 2),
+        min_df=1, max_features=5000, sublinear_tf=True
+    )
+    tfidf_matrix  = vectorizer.fit_transform(all_docs)
+    tfidf_scores  = cosine_similarity(tfidf_matrix[0], tfidf_matrix[1:])[0]
+    # Normalize TF-IDF to 0-1
+    max_tfidf = max(tfidf_scores) if max(tfidf_scores) > 0 else 1
+    tfidf_norm = tfidf_scores / max_tfidf
+
+    # ── Step 3: Final score = 75% skill + 25% tfidf ───────────────────────────
     matched_jobs = []
-    max_score = max(combined_scores) if max(combined_scores) > 0 else 1
-
     for i, job in enumerate(JOBS_DATA):
-        # Scale so top match is realistically ~85-92%
-        raw = float(combined_scores[i])
-        normalized = int((raw / max_score) * 88) if i == np.argmax(combined_scores) else int((raw / max_score) * 88)
-        normalized = max(5, min(95, normalized))
+        skill_score, req_found, bonus_found = calc_skill_score(job)
+        final_raw = (skill_score * 0.75) + (tfidf_norm[i] * 0.25)
+
+        # Convert to percentage directly — no artificial scaling
+        pct = int(final_raw * 100)
+        pct = max(3, min(99, pct))
 
         matched_jobs.append({
-            "title": job["title"],
-            "similarity_score": normalized,
-            "salary": job["salary"],
-            "companies": job["companies"],
-            "required_skills": job["required_skills"]
+            "title":            job["title"],
+            "similarity_score": pct,
+            "match_score":      pct,
+            "salary":           job["salary"],
+            "companies":        job["companies"],
+            "required_skills":  job["required_skills"],
+            "skills_matched":   req_found,
+            "skills_missing":   [s for s in job["required_skills"] if s.lower() not in resume_lower],
         })
 
     results = sorted(matched_jobs, key=lambda x: x["similarity_score"], reverse=True)
