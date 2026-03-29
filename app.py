@@ -754,6 +754,289 @@ if st.session_state.page == "intro":
 # PAGE: LOGIN  — Email OTP only
 # ══════════════════════════════════════════════════════════
 
+# ── Intro animation (shown once per session) ──────────────
+if st.session_state.page == "login" and not st.session_state.get("intro_done", False):
+    st.components.v1.html("""
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #0a0a0f;
+    display: flex; align-items: center; justify-content: center;
+    height: 100vh; overflow: hidden;
+    font-family: 'Segoe UI', sans-serif;
+  }
+
+  /* ── Orbit path ── */
+  .orbit-container {
+    position: relative;
+    width: 420px; height: 420px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Center logo ── */
+  .center-logo {
+    position: absolute;
+    text-align: center;
+    z-index: 10;
+    opacity: 0;
+    animation: logoFadeIn 0.8s ease forwards 0.5s;
+  }
+  .logo-icon {
+    font-size: 4.5rem;
+    display: block;
+    animation: logoPulse 2s ease-in-out infinite 1.5s;
+  }
+  .logo-text {
+    font-size: 1.5rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+  .logo-sub {
+    font-size: 0.75rem;
+    color: #4a6a8a;
+    margin-top: 0.3rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* ── Orbit ring ── */
+  .orbit-ring {
+    position: absolute;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    border: 1.5px dashed rgba(0,212,255,0.2);
+    animation: ringFadeIn 0.6s ease forwards 0.3s;
+    opacity: 0;
+  }
+  .orbit-ring-2 {
+    width: 380px; height: 380px;
+    border: 1px dashed rgba(123,47,247,0.12);
+    animation-delay: 0.4s;
+  }
+
+  /* ── Flying plane ── */
+  .plane-wrapper {
+    position: absolute;
+    width: 320px; height: 320px;
+    animation: orbitRotate 3s linear infinite;
+    opacity: 0;
+    animation: orbitRotate 3s linear infinite, planeAppear 0.5s ease forwards 0.8s;
+  }
+  .plane {
+    position: absolute;
+    top: -22px; left: 50%;
+    transform: translateX(-50%) rotate(90deg);
+    font-size: 2rem;
+    filter: drop-shadow(0 0 12px rgba(0,212,255,0.8));
+  }
+
+  /* ── Resume trail dots ── */
+  .trail-dot {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(0,212,255,0.6);
+    top: -19px; left: 50%;
+    transform: translateX(-50%);
+    animation: orbitRotate 3s linear infinite;
+    opacity: 0;
+  }
+  .trail-dot:nth-child(2) { animation-delay: -0.3s; width:4px; height:4px; opacity:0.4; background:rgba(123,47,247,0.6);}
+  .trail-dot:nth-child(3) { animation-delay: -0.6s; width:3px; height:3px; opacity:0.25; }
+
+  /* ── Resume card that orbits ── */
+  .resume-card {
+    position: absolute;
+    width: 48px; height: 60px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(123,47,247,0.15));
+    border: 1px solid rgba(0,212,255,0.4);
+    border-radius: 6px;
+    top: -30px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px;
+    opacity: 0;
+    animation: orbitRotate 3s linear infinite, cardAppear 0.5s ease forwards 1s;
+    box-shadow: 0 0 16px rgba(0,212,255,0.3);
+  }
+  .resume-line {
+    width: 28px; height: 2px;
+    background: rgba(0,212,255,0.6);
+    border-radius: 2px;
+  }
+  .resume-line.short { width: 18px; background: rgba(123,47,247,0.6); }
+  .resume-label {
+    font-size: 0.45rem;
+    color: rgba(0,212,255,0.8);
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  /* ── Glow particles ── */
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    animation: float linear infinite;
+    opacity: 0;
+  }
+
+  /* ── Tagline at bottom ── */
+  .tagline {
+    position: fixed;
+    bottom: 18%;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #2a4a6a;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0;
+    animation: tagFade 1s ease forwards 1.5s;
+  }
+
+  /* ── Progress bar ── */
+  .progress-bar {
+    position: fixed;
+    bottom: 12%;
+    left: 50%; transform: translateX(-50%);
+    width: 200px; height: 2px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    overflow: hidden;
+    opacity: 0;
+    animation: tagFade 0.5s ease forwards 1.8s;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+    border-radius: 2px;
+    animation: progressGrow 2.2s cubic-bezier(0.4,0,0.2,1) forwards 2s;
+  }
+
+  /* ── Keyframes ── */
+  @keyframes orbitRotate {
+    from { transform: rotate(0deg) translateX(160px) rotate(0deg); }
+    to   { transform: rotate(360deg) translateX(160px) rotate(-360deg); }
+  }
+  @keyframes ringFadeIn {
+    to { opacity: 1; }
+  }
+  @keyframes logoFadeIn {
+    from { opacity:0; transform: scale(0.7); }
+    to   { opacity:1; transform: scale(1); }
+  }
+  @keyframes logoPulse {
+    0%,100% { transform: scale(1); }
+    50%      { transform: scale(1.08); }
+  }
+  @keyframes planeAppear {
+    to { opacity: 1; }
+  }
+  @keyframes cardAppear {
+    to { opacity: 1; }
+  }
+  @keyframes tagFade {
+    to { opacity: 1; }
+  }
+  @keyframes progressGrow {
+    to { width: 100%; }
+  }
+  @keyframes float {
+    0%   { transform: translateY(0px) scale(1);   opacity: 0.6; }
+    50%  { transform: translateY(-20px) scale(1.2); opacity: 0.3; }
+    100% { transform: translateY(0px) scale(1);   opacity: 0; }
+  }
+  @keyframes fadeOut {
+    to { opacity: 0; pointer-events: none; }
+  }
+  .fade-out {
+    animation: fadeOut 0.6s ease forwards;
+  }
+</style>
+</head>
+<body>
+
+<div class="orbit-container" id="orbitContainer">
+
+  <!-- Orbit rings -->
+  <div class="orbit-ring" style="animation:ringFadeIn 0.6s ease forwards 0.3s;opacity:0;"></div>
+  <div class="orbit-ring orbit-ring-2" style="animation:ringFadeIn 0.6s ease forwards 0.4s;opacity:0;"></div>
+
+  <!-- Center logo -->
+  <div class="center-logo">
+    <span class="logo-icon">🚀</span>
+    <div class="logo-text">AI Resume Analyzer</div>
+    <div class="logo-sub">Pro · Career Intelligence</div>
+  </div>
+
+  <!-- Flying plane -->
+  <div class="plane-wrapper" style="width:320px;height:320px;position:absolute;">
+    <div class="plane">✈️</div>
+  </div>
+
+  <!-- Resume card orbiting -->
+  <div class="resume-card" style="animation: orbitRotate 3s linear infinite 1.5s, cardAppear 0.5s ease forwards 1s; animation-delay: 1.5s, 1s;">
+    <div class="resume-line"></div>
+    <div class="resume-line short"></div>
+    <div class="resume-line"></div>
+    <div class="resume-line short"></div>
+    <div class="resume-label">RESUME</div>
+  </div>
+
+  <!-- Trail dots -->
+  <div style="position:absolute;width:320px;height:320px;">
+    <div class="trail-dot" style="animation:orbitRotate 3s linear infinite -0.2s, planeAppear 0.5s ease forwards 1.2s;"></div>
+    <div class="trail-dot" style="animation:orbitRotate 3s linear infinite -0.45s, planeAppear 0.5s ease forwards 1.3s;opacity:0;"></div>
+    <div class="trail-dot" style="animation:orbitRotate 3s linear infinite -0.7s, planeAppear 0.5s ease forwards 1.4s;opacity:0;"></div>
+  </div>
+
+  <!-- Glow particles -->
+  <div class="particle" style="width:4px;height:4px;background:#00d4ff;top:30%;left:20%;animation:float 3s ease infinite 0.5s;"></div>
+  <div class="particle" style="width:3px;height:3px;background:#7b2ff7;top:60%;left:75%;animation:float 4s ease infinite 1s;"></div>
+  <div class="particle" style="width:5px;height:5px;background:#00d4ff;top:75%;left:30%;animation:float 3.5s ease infinite 0.2s;"></div>
+  <div class="particle" style="width:3px;height:3px;background:#ff6b6b;top:20%;left:70%;animation:float 4.5s ease infinite 1.5s;"></div>
+
+</div>
+
+<!-- Tagline -->
+<div class="tagline">Get hired faster with AI</div>
+
+<!-- Progress bar -->
+<div class="progress-bar">
+  <div class="progress-fill"></div>
+</div>
+
+<script>
+  // Auto close after animation finishes (~4.2s)
+  setTimeout(function() {
+    document.body.style.transition = "opacity 0.5s";
+    document.body.style.opacity = "0";
+    setTimeout(function() {
+      window.parent.postMessage({type: "intro_done"}, "*");
+    }, 500);
+  }, 4000);
+</script>
+
+</body>
+</html>
+""", height=600, scrolling=False)
+
+    # Listen for intro done signal — auto advance after 4.5s
+    import time as _time
+    _time.sleep(4.5)
+    st.session_state.intro_done = True
+    st.rerun()
+
 if st.session_state.page == "login":
 
     col_l, col_c, col_r = st.columns([1, 1.2, 1])
