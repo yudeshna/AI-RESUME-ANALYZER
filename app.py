@@ -1152,7 +1152,7 @@ with tab1:
         with col4:
             st.markdown(f'<div class="metric-card"><div style="font-size:2.6rem;font-weight:900;color:#7b2ff7">{len(categories)}</div><div style="color:#5a6478">Skill Categories</div></div>', unsafe_allow_html=True)
         with col5:
-            top_match = st.session_state['jobs'][0]['similarity_score'] if st.session_state.get('jobs') else 0
+            top_match = st.session_state['jobs'][0].get('similarity_score') or st.session_state['jobs'][0].get('match_score', 0) if st.session_state.get('jobs') else 0
             st.markdown(f'<div class="metric-card"><div style="font-size:2.6rem;font-weight:900;color:#ff6b6b">{top_match}%</div><div style="color:#5a6478">Top Job Match</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
