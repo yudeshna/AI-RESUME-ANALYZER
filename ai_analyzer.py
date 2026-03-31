@@ -226,7 +226,29 @@ SITUATIONAL / CASE QUESTIONS:
 
 
 def generate_skill_roadmap(missing_skills, target_job):
-    skills_str = ", ".join(missing_skills)
+    # Expand common shortcuts to full skill names
+    SHORTCUTS = {
+        "dl": "Deep Learning", "ml": "Machine Learning", "ai": "Artificial Intelligence",
+        "nlp": "Natural Language Processing", "cv": "Computer Vision",
+        "sql": "SQL", "nosql": "NoSQL", "js": "JavaScript", "ts": "TypeScript",
+        "py": "Python", "tf": "TensorFlow", "pt": "PyTorch", "sk": "Scikit-learn",
+        "ds": "Data Science", "da": "Data Analysis", "de": "Data Engineering",
+        "aws": "Amazon Web Services", "gcp": "Google Cloud Platform",
+        "k8s": "Kubernetes", "ci/cd": "CI/CD", "oop": "Object Oriented Programming",
+        "api": "REST API", "db": "Database", "fe": "Frontend Development",
+        "be": "Backend Development", "fs": "Full Stack Development",
+        "dsa": "Data Structures and Algorithms", "os": "Operating Systems",
+        "cn": "Computer Networks", "se": "Software Engineering",
+        "pm": "Project Management", "agile": "Agile Methodology",
+        "git": "Git Version Control", "docker": "Docker",
+        "llm": "Large Language Models", "rag": "RAG (Retrieval Augmented Generation)",
+        "gen ai": "Generative AI", "genai": "Generative AI",
+    }
+    expanded = []
+    for s in missing_skills:
+        key = s.strip().lower()
+        expanded.append(SHORTCUTS.get(key, s.strip()))
+    skills_str = ", ".join(expanded)
     prompt = f"""You are an expert career coach and curriculum designer who has helped 10,000+ people land jobs at top tech companies.
 
 Create a detailed, realistic 12-week learning roadmap for someone targeting: {target_job}
