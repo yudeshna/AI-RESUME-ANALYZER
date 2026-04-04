@@ -44,137 +44,146 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── Intro animation — runs immediately before anything else ──
+# ── Intro animation ──────────────────────────────────────
 if "intro_done" not in st.session_state:
     st.session_state.intro_done = False
 
 if not st.session_state.intro_done:
-    st.markdown("""
-    <style>
-    header[data-testid="stHeader"],
-    section[data-testid="stSidebar"],
-    .block-container { display:none !important; }
+    st.components.v1.html("""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    width:100%; height:100vh;
+    background:#0a0a0f;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column; overflow:hidden;
+    font-family:'Segoe UI',sans-serif;
+  }
+  .scene {
+    position:relative;
+    width:340px; height:340px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  /* Orbit rings */
+  .ring {
+    position:absolute; border-radius:50%;
+    border:1px dashed rgba(0,212,255,0.2);
+    width:300px; height:300px;
+    animation:fadeIn 0.6s ease forwards;
+    opacity:0;
+  }
+  .ring2 { width:360px; height:360px; border-color:rgba(123,47,247,0.15); animation-delay:0.3s; }
+  @keyframes fadeIn { to { opacity:1; } }
 
-    #intro-overlay {
-        position:fixed; inset:0; z-index:99999;
-        background:#0a0a0f;
-        display:flex; flex-direction:column;
-        align-items:center; justify-content:center;
-        font-family:'Segoe UI',sans-serif;
-        overflow:hidden;
-    }
-    .orb-wrap {
-        position:relative; width:320px; height:320px;
-        display:flex; align-items:center; justify-content:center;
-    }
-    .ring {
-        position:absolute; border-radius:50%;
-        border:1.5px dashed rgba(0,212,255,0.2);
-        opacity:0; animation:rIn 0.8s ease forwards;
-    }
-    @keyframes rIn { to{opacity:1} }
-    .spin {
-        position:absolute; width:280px; height:280px;
-        animation:orbit 3.5s linear infinite;
-    }
-    .spin .plane {
-        position:absolute; top:-20px; left:50%;
-        transform:translateX(-50%);
-        font-size:2rem;
-        filter:drop-shadow(0 0 10px rgba(0,212,255,0.9));
-    }
-    @keyframes orbit { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-    .spin2 { animation-duration:3.5s; animation-delay:-1.75s; }
-    .resume-mini {
-        position:absolute; top:-34px; left:50%;
-        transform:translateX(-50%);
-        width:40px; height:52px;
-        background:rgba(123,47,247,0.18);
-        border:1px solid rgba(0,212,255,0.5);
-        border-radius:5px;
-        display:flex; flex-direction:column;
-        align-items:center; justify-content:center; gap:3px;
-        box-shadow:0 0 14px rgba(0,212,255,0.4);
-        animation:counterOrbit 3.5s linear infinite -1.75s;
-    }
-    @keyframes counterOrbit {
-        from{transform:translateX(-50%) rotate(0deg)}
-        to{transform:translateX(-50%) rotate(-360deg)}
-    }
-    .rl{width:24px;height:2px;background:rgba(0,212,255,0.7);border-radius:2px;}
-    .rl.s{width:15px;background:rgba(123,47,247,0.7);}
-    .center-c {
-        position:absolute; text-align:center; z-index:10;
-        opacity:0; transform:scale(0.5);
-        animation:zIn 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards 0.5s;
-    }
-    @keyframes zIn { to{opacity:1;transform:scale(1)} }
-    .rocket-ico { font-size:3.5rem; display:block;
-        animation:bob 2s ease-in-out infinite 1.5s; }
-    @keyframes bob {
-        0%,100%{transform:translateY(0) rotate(-5deg)}
-        50%{transform:translateY(-8px) rotate(5deg)}
-    }
-    .app-name {
-        font-size:1.5rem; font-weight:900;
-        background:linear-gradient(90deg,#00d4ff,#7b2ff7);
-        -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-        margin-top:0.4rem; letter-spacing:0.02em;
-    }
-    .app-sub { font-size:0.65rem; color:#2a4a6a; letter-spacing:0.2em; text-transform:uppercase; margin-top:0.2rem; }
-    .bottom-a {
-        position:absolute; bottom:15%;
-        text-align:center; width:100%;
-        opacity:0; animation:rIn 0.5s ease forwards 2s;
-    }
-    .lbl { font-size:0.62rem; color:#1a3a5a; letter-spacing:0.2em; text-transform:uppercase; margin-bottom:8px; }
-    .lbar { width:180px; height:2px; background:rgba(255,255,255,0.05); border-radius:2px; margin:0 auto; overflow:hidden; }
-    .lfill { height:100%; width:0%; background:linear-gradient(90deg,#00d4ff,#7b2ff7); border-radius:2px;
-        animation:lUp 2.5s ease forwards 2.2s; }
-    @keyframes lUp { to{width:100%} }
-    .ptcl { position:absolute; border-radius:50%;
-        animation:flt ease-in-out infinite; }
-    @keyframes flt {
-        0%,100%{transform:translateY(0);opacity:0.5}
-        50%{transform:translateY(-18px);opacity:0.1}
-    }
-    </style>
+  /* Plane orbiting */
+  .orbit {
+    position:absolute;
+    width:300px; height:300px;
+    animation:spin 3s linear infinite;
+    opacity:0; animation: spin 3s linear infinite, fadeIn 0.3s ease forwards 0.5s;
+  }
+  .plane {
+    position:absolute;
+    top:-18px; left:50%;
+    transform:translateX(-50%);
+    font-size:1.8rem;
+    filter:drop-shadow(0 0 8px #00d4ff);
+  }
+  @keyframes spin {
+    from { transform:rotate(0deg); }
+    to   { transform:rotate(360deg); }
+  }
 
-    <div id="intro-overlay">
-      <div class="orb-wrap">
-        <div class="ring" style="width:280px;height:280px;animation-delay:0.2s;"></div>
-        <div class="ring" style="width:340px;height:340px;border-color:rgba(123,47,247,0.12);animation-delay:0.4s;"></div>
-        <div class="spin">
-          <div class="plane">✈️</div>
-        </div>
-        <div class="spin spin2">
-          <div class="resume-mini">
-            <div class="rl"></div><div class="rl s"></div>
-            <div class="rl"></div><div class="rl s"></div>
-            <div class="rl" style="width:18px;"></div>
-          </div>
-        </div>
-        <div class="center-c">
-          <span class="rocket-ico">🚀</span>
-          <div class="app-name">AI Resume Analyzer Pro</div>
-          <div class="app-sub">Career · Intelligence · AI</div>
-        </div>
-        <div class="ptcl" style="width:5px;height:5px;background:#00d4ff;top:15%;left:15%;animation-duration:3.2s;animation-delay:0.5s;"></div>
-        <div class="ptcl" style="width:3px;height:3px;background:#7b2ff7;top:70%;left:82%;animation-duration:4s;animation-delay:1s;"></div>
-        <div class="ptcl" style="width:4px;height:4px;background:#00d4ff;top:82%;left:20%;animation-duration:3.5s;"></div>
-        <div class="ptcl" style="width:3px;height:3px;background:#ff6b6b;top:18%;left:78%;animation-duration:4.5s;animation-delay:1.5s;"></div>
-      </div>
-      <div class="bottom-a">
-        <div class="lbl">Launching your career dashboard</div>
-        <div class="lbar"><div class="lfill"></div></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+  /* Center logo */
+  .logo {
+    position:absolute;
+    text-align:center;
+    opacity:0;
+    transform:scale(0.5);
+    animation:popIn 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards 0.6s;
+    z-index:10;
+  }
+  @keyframes popIn { to { opacity:1; transform:scale(1); } }
+  .rocket { font-size:3rem; display:block; animation:bob 2s ease-in-out infinite 1.5s; }
+  @keyframes bob {
+    0%,100% { transform:translateY(0); }
+    50%      { transform:translateY(-8px); }
+  }
+  .title {
+    font-size:1.15rem; font-weight:900;
+    background:linear-gradient(90deg,#00d4ff,#7b2ff7);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    margin-top:6px; letter-spacing:0.02em; white-space:nowrap;
+  }
+  .sub { font-size:0.6rem; color:#2a4a6a; letter-spacing:0.2em; text-transform:uppercase; margin-top:4px; }
+
+  /* Loading bar */
+  .bar-wrap {
+    margin-top:32px; text-align:center;
+    opacity:0; animation:fadeIn 0.5s ease forwards 1.8s;
+  }
+  .bar-lbl { font-size:0.58rem; color:#1a3a5a; letter-spacing:0.2em; text-transform:uppercase; margin-bottom:8px; }
+  .bar-bg { width:180px; height:2px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden; margin:0 auto; }
+  .bar-fill {
+    height:100%; width:0%; border-radius:2px;
+    background:linear-gradient(90deg,#00d4ff,#7b2ff7);
+    animation:fill 2.4s ease forwards 2s;
+  }
+  @keyframes fill { to { width:100%; } }
+
+  /* Particles */
+  .p {
+    position:absolute; border-radius:50%;
+    animation:float ease-in-out infinite;
+    opacity:0; animation:float ease-in-out infinite, fadeIn 0.5s forwards;
+  }
+  @keyframes float {
+    0%,100% { transform:translateY(0); opacity:0.5; }
+    50%      { transform:translateY(-16px); opacity:0.1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scene">
+  <div class="ring"></div>
+  <div class="ring ring2"></div>
+
+  <!-- Orbiting plane -->
+  <div class="orbit">
+    <div class="plane">✈️</div>
+  </div>
+
+  <!-- Center logo -->
+  <div class="logo">
+    <span class="rocket">🚀</span>
+    <div class="title">AI Resume Analyzer Pro</div>
+    <div class="sub">Career · Intelligence · AI</div>
+  </div>
+
+  <!-- Particles -->
+  <div class="p" style="width:5px;height:5px;background:#00d4ff;top:12%;left:14%;animation-duration:3.2s;animation-delay:0.5s;"></div>
+  <div class="p" style="width:3px;height:3px;background:#7b2ff7;top:72%;left:82%;animation-duration:4s;animation-delay:1s;"></div>
+  <div class="p" style="width:4px;height:4px;background:#00d4ff;top:80%;left:18%;animation-duration:3.5s;animation-delay:0.2s;"></div>
+  <div class="p" style="width:3px;height:3px;background:#ff6b6b;top:15%;left:80%;animation-duration:4.5s;animation-delay:1.5s;"></div>
+</div>
+
+<div class="bar-wrap">
+  <div class="bar-lbl">Launching your career dashboard</div>
+  <div class="bar-bg"><div class="bar-fill"></div></div>
+</div>
+
+</body>
+</html>
+""", height=600, scrolling=False)
     import time as _t
-    _t.sleep(4.5)
+    _t.sleep(4.8)
     st.session_state.intro_done = True
     st.rerun()
-
 # ─── Global CSS ────────────────────────────────────────────
 st.markdown("""
 <style>
